@@ -1,15 +1,15 @@
 use rusqlite::{Connection, Result, params};
 use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Mod {
     pub id: Option<i64>,
     pub curseforge_id: i64,
     pub name: String,
-    pub last_version: String,
-    pub last_checked: DateTime<Utc>,
-    pub game_version: String,
+    pub game_name: String,
+    pub last_updated: String,
+    pub last_checked: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,29 +19,14 @@ pub struct ModWithWebhooks {
     pub webhook_ids: Vec<i64>,
 }
 
-pub fn insert_mod(conn: &Connection, mod_data: &Mod) -> Result<i64> {
-    conn.execute(
-        "INSERT INTO mods (curseforge_id, name, last_version, last_checked, game_version)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![
-            mod_data.curseforge_id,
-            mod_data.name,
-            mod_data.last_version,
-            mod_data.last_checked.to_rfc3339(),
-            mod_data.game_version,
-        ],
-    )?;
-
-    Ok(conn.last_insert_rowid())
-}
-
 pub fn get_all_mods(conn: &Connection) -> Result<Vec<ModWithWebhooks>> {
     let mut stmt = conn.prepare(
-        "SELECT m.id, m.curseforge_id, m.name, m.last_version, m.last_checked, m.game_version,
+        "SELECT m.id, m.curseforge_id, m.name, m.game_name, m.last_updated, m.last_checked,
          GROUP_CONCAT(mwa.webhook_id) as webhook_ids
          FROM mods m
          LEFT JOIN mod_webhook_assignments mwa ON m.id = mwa.mod_id
-         GROUP BY m.id"
+         GROUP BY m.id
+         ORDER BY m.game_name, m.name"
     )?;
 
     let mods_iter = stmt.query_map([], |row| {
@@ -54,17 +39,17 @@ pub fn get_all_mods(conn: &Connection) -> Result<Vec<ModWithWebhooks>> {
             })
             .unwrap_or(Vec::new());
 
+        let mod_info = Mod {
+            id: Some(row.get(0)?),
+            curseforge_id: row.get(1)?,
+            name: row.get(2)?,
+            game_name: row.get(3)?,
+            last_updated: row.get(4)?,
+            last_checked: row.get(5)?,
+        };
+
         Ok(ModWithWebhooks {
-            mod_info: Mod {
-                id: Some(row.get(0)?),
-                curseforge_id: row.get(1)?,
-                name: row.get(2)?,
-                last_version: row.get(3)?,
-                last_checked: DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                game_version: row.get(5)?,
-            },
+            mod_info,
             webhook_ids,
         })
     })?;
@@ -77,17 +62,46 @@ pub fn get_all_mods(conn: &Connection) -> Result<Vec<ModWithWebhooks>> {
     Ok(mods)
 }
 
-pub fn update_mod_version(conn: &Connection, mod_id: i64, new_version: &str) -> Result<()> {
+pub fn insert_mod(conn: &Connection, mod_data: &Mod) -> Result<i64> {
     conn.execute(
-        "UPDATE mods SET last_version = ?1, last_checked = ?2 WHERE id = ?3",
-        params![new_version, Utc::now().to_rfc3339(), mod_id],
+        "INSERT INTO mods (curseforge_id, name, game_name, last_updated, last_checked)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            mod_data.curseforge_id,
+            mod_data.name,
+            mod_data.game_name,
+            mod_data.last_updated,
+            mod_data.last_checked,
+        ],
+    )?;
+
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn update_mod_last_updated(conn: &Connection, mod_id: i64, last_updated: &str) -> Result<()> {
+    let now = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "UPDATE mods SET last_updated = ?1, last_checked = ?2 WHERE id = ?3",
+        params![last_updated, now, mod_id],
     )?;
 
     Ok(())
 }
 
 pub fn delete_mod(conn: &Connection, mod_id: i64) -> Result<()> {
-    conn.execute("DELETE FROM mods WHERE id = ?1", params![mod_id])?;
+    // First delete webhook assignments
+    conn.execute(
+        "DELETE FROM mod_webhook_assignments WHERE mod_id = ?1",
+        params![mod_id],
+    )?;
+
+    // Then delete the mod
+    conn.execute(
+        "DELETE FROM mods WHERE id = ?1",
+        params![mod_id],
+    )?;
+
     Ok(())
 }
 
@@ -96,6 +110,7 @@ pub fn assign_webhook_to_mod(conn: &Connection, mod_id: i64, webhook_id: i64) ->
         "INSERT OR IGNORE INTO mod_webhook_assignments (mod_id, webhook_id) VALUES (?1, ?2)",
         params![mod_id, webhook_id],
     )?;
+
     Ok(())
 }
 
@@ -104,5 +119,6 @@ pub fn remove_webhook_from_mod(conn: &Connection, mod_id: i64, webhook_id: i64) 
         "DELETE FROM mod_webhook_assignments WHERE mod_id = ?1 AND webhook_id = ?2",
         params![mod_id, webhook_id],
     )?;
+
     Ok(())
 }

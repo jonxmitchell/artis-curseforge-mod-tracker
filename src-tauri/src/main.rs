@@ -6,6 +6,7 @@ mod commands;
 use database::{get_database_path, ensure_database_exists, initialize_database};
 use commands::mod_commands::*;
 use commands::webhook_commands::*;
+use commands::settings_commands::*;
 use rusqlite::Connection;
 
 fn main() {
@@ -33,6 +34,9 @@ fn main() {
             delete_webhook,
             test_webhook,
             send_update_notification,
+            // Settings commands
+            get_api_key,
+            set_api_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
