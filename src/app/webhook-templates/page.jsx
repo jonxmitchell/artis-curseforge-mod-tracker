@@ -2,12 +2,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardBody, Button, Spinner, Tabs, Tab } from "@nextui-org/react";
+import { Card, CardBody, Button, Spinner, Tabs, Tab, Select, SelectItem } from "@nextui-org/react";
 import { invoke } from "@tauri-apps/api/tauri";
 import WebhookEditor from "@/components/WebhookEditor";
+import { MessageSquare } from "lucide-react";
 
 export default function WebhookTemplatesPage() {
   const [webhooks, setWebhooks] = useState([]);
+  const [selectedWebhook, setSelectedWebhook] = useState(null);
   const [defaultTemplate, setDefaultTemplate] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -39,13 +41,9 @@ export default function WebhookTemplatesPage() {
     await loadData();
   };
 
-  const handleResetToDefault = async (webhookId) => {
-    try {
-      await invoke("delete_custom_template", { webhookId });
-      await loadData();
-    } catch (error) {
-      console.error("Failed to reset template:", error);
-    }
+  const handleWebhookSelect = (value) => {
+    const webhook = webhooks.find((w) => w.id.toString() === value);
+    setSelectedWebhook(webhook || null);
   };
 
   const renderContent = () => {
@@ -73,7 +71,7 @@ export default function WebhookTemplatesPage() {
         <Card>
           <CardBody>
             <h2 className="text-xl font-bold mb-4">Default Template</h2>
-            <p className="text-sm text-default-500 mb-4">This template will be used for all webhooks unless they have a custom template.</p>
+            <p className="text-sm text-default-500 mb-4">This template will be used for all webhooks unless they have a custom template enabled.</p>
             <WebhookEditor template={defaultTemplate} onSave={handleSaveTemplate} isDefault={true} />
           </CardBody>
         </Card>
@@ -85,21 +83,38 @@ export default function WebhookTemplatesPage() {
         return <div className="text-center p-8 border border-dashed rounded-lg">No webhooks found. Add webhooks first to customize their templates!</div>;
       }
 
-      return webhooks.map((webhook) => (
-        <Card key={webhook.id} className="mb-6">
-          <CardBody>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Template for {webhook.name}</h2>
-              {webhook.use_custom_template && (
-                <Button color="danger" variant="light" onClick={() => handleResetToDefault(webhook.id)}>
-                  Reset to Default
-                </Button>
-              )}
-            </div>
-            <WebhookEditor webhook={webhook} onSave={handleSaveTemplate} isDefault={false} />
-          </CardBody>
-        </Card>
-      ));
+      return (
+        <div className="space-y-6">
+          <Card>
+            <CardBody>
+              <Select label="Select Webhook" placeholder="Choose a webhook to customize" selectedKeys={selectedWebhook ? [selectedWebhook.id.toString()] : []} onChange={(e) => handleWebhookSelect(e.target.value)}>
+                {webhooks.map((webhook) => (
+                  <SelectItem key={webhook.id.toString()} value={webhook.id} textValue={webhook.name}>
+                    <div className="flex justify-between items-center gap-2">
+                      <span>{webhook.name}</span>
+                      <div className="flex items-center gap-2 text-default-500">
+                        <MessageSquare size={14} />
+                        <span className="text-xs">{webhook.use_custom_template ? "Custom" : "Default"}</span>
+                      </div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </Select>
+            </CardBody>
+          </Card>
+
+          {selectedWebhook && (
+            <Card>
+              <CardBody>
+                <h2 className="text-xl font-bold mb-4">Template for {selectedWebhook.name}</h2>
+                <WebhookEditor webhook={selectedWebhook} onSave={handleSaveTemplate} isDefault={false} />
+              </CardBody>
+            </Card>
+          )}
+
+          {!selectedWebhook && <div className="text-center p-8 border border-dashed rounded-lg">Select a webhook above to customize its template.</div>}
+        </div>
+      );
     }
   };
 
