@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Settings {
     pub api_key: Option<String>,
+    pub update_interval: i64, // Interval in minutes
 }
 
 pub fn initialize_settings_table(conn: &Connection) -> Result<()> {
@@ -16,9 +17,15 @@ pub fn initialize_settings_table(conn: &Connection) -> Result<()> {
         [],
     )?;
 
-    // Insert default API key if it doesn't exist
+    // Insert default settings if they don't exist
     conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('api_key', NULL)",
+        [],
+    )?;
+    
+    // Add default update interval (30 minutes)
+    conn.execute(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('update_interval', '30')",
         [],
     )?;
 
@@ -33,10 +40,29 @@ pub fn get_api_key(conn: &Connection) -> Result<Option<String>> {
     Ok(api_key)
 }
 
+pub fn get_update_interval(conn: &Connection) -> Result<i64> {
+    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'update_interval'")?;
+    let interval = stmt.query_row([], |row| {
+        let value: String = row.get(0)?;
+        Ok(value.parse::<i64>().unwrap_or(30))
+    }).unwrap_or(30);
+    
+    Ok(interval)
+}
+
 pub fn set_api_key(conn: &Connection, api_key: &str) -> Result<()> {
     conn.execute(
         "UPDATE settings SET value = ?1 WHERE key = 'api_key'",
         params![api_key],
+    )?;
+    
+    Ok(())
+}
+
+pub fn set_update_interval(conn: &Connection, interval: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE settings SET value = ?1 WHERE key = 'update_interval'",
+        params![interval.to_string()],
     )?;
     
     Ok(())

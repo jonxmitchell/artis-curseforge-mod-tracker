@@ -37,6 +37,8 @@ fn main() {
             // Settings commands
             get_api_key,
             set_api_key,
+            get_update_interval,
+            set_update_interval,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
