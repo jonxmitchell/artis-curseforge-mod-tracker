@@ -80,17 +80,27 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
         [],
     )?;
 
-    // Insert default template if it doesn't exist
-    connection.execute(
-        "INSERT OR IGNORE INTO webhook_templates (is_default, title, color, use_embed, embed_fields)
-         VALUES (1, '🔄 Mod Update Available!', 5814783, 1, '[
-            {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
-            {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
-            {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
-            {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
-         ]')",
-        [],
-    )?;
+    // Check if default template exists
+    let default_exists: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM webhook_templates WHERE is_default = 1)",
+            [],
+            |row| row.get(0),
+        )?;
+
+    // Only insert default template if it doesn't exist
+    if !default_exists {
+        connection.execute(
+            "INSERT INTO webhook_templates (is_default, title, color, use_embed, embed_fields)
+             VALUES (1, '🔄 Mod Update Available!', 5814783, 1, '[
+                {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
+                {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
+                {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
+                {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
+             ]')",
+            [],
+        )?;
+    }
 
     // Initialize settings table
     initialize_settings_table(connection)?;
