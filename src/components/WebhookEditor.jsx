@@ -12,13 +12,14 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadTemplate();
+    if (isDefault || webhook?.id) {
+      loadTemplate();
+    }
   }, [webhook?.id, isDefault]);
 
   const loadTemplate = async () => {
     try {
       setIsLoading(true);
-
       // If this is not the default template and the webhook doesn't use custom template,
       // load the default template instead
       const webhookId = isDefault ? -1 : webhook?.use_custom_template ? webhook?.id : -1;
@@ -43,6 +44,11 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
           color: 5814783,
           content: "",
           use_embed: true,
+          author_name: "",
+          author_icon_url: "",
+          footer_text: "",
+          footer_icon_url: "",
+          include_timestamp: true,
           embed_fields: JSON.stringify([
             { name: "Mod Name", value: "{mod_name}", inline: true },
             { name: "Game Version", value: "{game_version}", inline: true },
@@ -137,61 +143,80 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
       </Card>
 
       {template.use_embed && (
-        <Card>
-          <CardBody className="space-y-4">
-            <h3 className="text-lg font-semibold">Embed Settings</h3>
-            <Input label="Title" value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} />
-            <Input
-              label="Color"
-              type="color"
-              value={`#${template.color.toString(16)}`}
-              onChange={(e) =>
-                setTemplate({
-                  ...template,
-                  color: parseInt(e.target.value.slice(1), 16),
-                })
-              }
-            />
-          </CardBody>
-        </Card>
-      )}
+        <>
+          <Card>
+            <CardBody className="space-y-4">
+              <h3 className="text-lg font-semibold">Author Settings</h3>
+              <Input label="Author Name" value={template.author_name || ""} onChange={(e) => setTemplate({ ...template, author_name: e.target.value })} placeholder="Enter author name" />
+              <Input label="Author Icon URL" value={template.author_icon_url || ""} onChange={(e) => setTemplate({ ...template, author_icon_url: e.target.value })} placeholder="Enter author icon URL" />
+            </CardBody>
+          </Card>
 
-      {template.use_embed && (
-        <Card>
-          <CardBody className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Embed Fields</h3>
-              <Button color="primary" variant="flat" startContent={<Plus size={20} />} onPress={addField}>
-                Add Field
-              </Button>
-            </div>
+          <Card>
+            <CardBody className="space-y-4">
+              <h3 className="text-lg font-semibold">Embed Settings</h3>
+              <Input label="Title" value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} />
+              <Input
+                label="Color"
+                type="color"
+                value={`#${template.color.toString(16).padStart(6, "0")}`}
+                onChange={(e) =>
+                  setTemplate({
+                    ...template,
+                    color: parseInt(e.target.value.slice(1), 16),
+                  })
+                }
+              />
+            </CardBody>
+          </Card>
 
-            <div className="space-y-4">
-              {fields.map((field, index) => (
-                <div key={index} className="flex gap-4 items-start border p-4 rounded-lg">
-                  <div className="flex-1 space-y-4">
-                    <Input label="Field Name" value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
-                    <Input label="Field Value" value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
-                    <Switch isSelected={field.inline} onValueChange={(value) => updateField(index, "inline", value)}>
-                      Inline
-                    </Switch>
+          <Card>
+            <CardBody className="space-y-4">
+              <h3 className="text-lg font-semibold">Footer Settings</h3>
+              <Input label="Footer Text" value={template.footer_text || ""} onChange={(e) => setTemplate({ ...template, footer_text: e.target.value })} placeholder="Enter footer text" />
+              <Input label="Footer Icon URL" value={template.footer_icon_url || ""} onChange={(e) => setTemplate({ ...template, footer_icon_url: e.target.value })} placeholder="Enter footer icon URL" />
+              <Switch isSelected={template.include_timestamp} onValueChange={(value) => setTemplate({ ...template, include_timestamp: value })}>
+                Include Timestamp
+              </Switch>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Embed Fields</h3>
+                <Button color="primary" variant="flat" startContent={<Plus size={20} />} onPress={addField}>
+                  Add Field
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {fields.map((field, index) => (
+                  <div key={index} className="flex gap-4 items-start border p-4 rounded-lg">
+                    <div className="flex-1 space-y-4">
+                      <Input label="Field Name" value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
+                      <Input label="Field Value" value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
+                      <Switch isSelected={field.inline} onValueChange={(value) => updateField(index, "inline", value)}>
+                        Inline
+                      </Switch>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Button isIconOnly variant="light" onPress={() => moveField(index, "up")} isDisabled={index === 0}>
+                        <Move className="rotate-180" size={20} />
+                      </Button>
+                      <Button isIconOnly variant="light" onPress={() => moveField(index, "down")} isDisabled={index === fields.length - 1}>
+                        <Move size={20} />
+                      </Button>
+                      <Button isIconOnly variant="light" color="danger" onPress={() => removeField(index)}>
+                        <Trash2 size={20} />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <Button isIconOnly variant="light" onPress={() => moveField(index, "up")} isDisabled={index === 0}>
-                      <Move className="rotate-180" size={20} />
-                    </Button>
-                    <Button isIconOnly variant="light" onPress={() => moveField(index, "down")} isDisabled={index === fields.length - 1}>
-                      <Move size={20} />
-                    </Button>
-                    <Button isIconOnly variant="light" color="danger" onPress={() => removeField(index)}>
-                      <Trash2 size={20} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        </>
       )}
 
       <div className="flex justify-end">

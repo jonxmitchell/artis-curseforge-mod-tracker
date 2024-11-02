@@ -1,4 +1,3 @@
-// src-tauri/src/database/init.rs
 use rusqlite::{Connection, Result};
 use std::path::Path;
 use tauri::AppHandle;
@@ -69,6 +68,11 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
             color INTEGER NOT NULL DEFAULT 5814783,
             content TEXT,
             use_embed BOOLEAN NOT NULL DEFAULT 1,
+            author_name TEXT,
+            author_icon_url TEXT,
+            footer_text TEXT,
+            footer_icon_url TEXT,
+            include_timestamp BOOLEAN NOT NULL DEFAULT 1,
             embed_fields TEXT NOT NULL DEFAULT '[
                 {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
                 {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
@@ -91,13 +95,22 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
     // Only insert default template if it doesn't exist
     if !default_exists {
         connection.execute(
-            "INSERT INTO webhook_templates (is_default, title, color, use_embed, embed_fields)
-             VALUES (1, '🔄 Mod Update Available!', 5814783, 1, '[
-                {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
-                {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
-                {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
-                {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
-             ]')",
+            "INSERT INTO webhook_templates (
+                is_default, title, color, use_embed, 
+                author_name, author_icon_url,
+                footer_text, footer_icon_url, include_timestamp,
+                embed_fields
+            ) VALUES (
+                1, '🔄 Mod Update Available!', 5814783, 1,
+                'Mod Tracker', NULL,
+                'Powered by Artis Mod Tracker', NULL, 1,
+                '[
+                    {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
+                    {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
+                    {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
+                    {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
+                ]'
+            )",
             [],
         )?;
     }
