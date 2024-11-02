@@ -26,38 +26,6 @@ function formatDate(dateString) {
   }
 }
 
-function getRelativeTime(dateString) {
-  if (!dateString) {
-    return "Unknown";
-  }
-
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((date - now) / 1000);
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-
-    if (Math.abs(diffInDays) >= 30) {
-      return formatDate(dateString);
-    } else if (Math.abs(diffInDays) >= 1) {
-      return rtf.format(diffInDays, "day");
-    } else if (Math.abs(diffInHours) >= 1) {
-      return rtf.format(diffInHours, "hour");
-    } else if (Math.abs(diffInMinutes) >= 1) {
-      return rtf.format(diffInMinutes, "minute");
-    } else {
-      return rtf.format(diffInSeconds, "second");
-    }
-  } catch (error) {
-    console.error("Error calculating relative time:", error);
-    return "Unknown";
-  }
-}
-
 export default function ModCard({ mod, onDelete, onUpdate, onManageWebhooks }) {
   const [isChecking, setIsChecking] = useState(false);
 
@@ -66,7 +34,7 @@ export default function ModCard({ mod, onDelete, onUpdate, onManageWebhooks }) {
     return null;
   }
 
-  const { id, name, game_name, last_updated, last_checked } = mod;
+  const { id, name, game_name, last_updated } = mod;
 
   const handleCheckUpdate = async () => {
     setIsChecking(true);
@@ -89,12 +57,9 @@ export default function ModCard({ mod, onDelete, onUpdate, onManageWebhooks }) {
               {game_name}
             </Chip>
           </div>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
-              <Clock size={14} className="text-default-400" />
-              <span className="text-sm text-default-400">Updated: {formatDate(last_updated)}</span>
-            </div>
-            <div className="text-xs text-default-400">Last checked: {getRelativeTime(last_checked)}</div>
+          <div className="flex items-center gap-1">
+            <Clock size={14} className="text-default-400" />
+            <span className="text-sm text-default-400">Last Updated: {formatDate(last_updated)}</span>
           </div>
         </div>
 

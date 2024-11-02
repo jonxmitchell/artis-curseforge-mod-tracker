@@ -5,7 +5,6 @@ use tauri::AppHandle;
 use crate::database::{get_database_path, ensure_database_exists};
 use anyhow::Result;
 use reqwest::header::HeaderMap;
-use chrono::Utc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CurseForgeResponse {
@@ -138,7 +137,6 @@ pub async fn add_mod(
         name: curse_data.data.name,
         game_name,
         last_updated: curse_data.data.date_modified,
-        last_checked: Utc::now().to_rfc3339(),
     };
 
     ensure_database_exists(&db_path).map_err(|e| e.to_string())?;
