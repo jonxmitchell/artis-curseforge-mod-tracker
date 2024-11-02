@@ -23,13 +23,15 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
 
   const handleToggle = async (enabled) => {
     try {
-      await onUpdate({
+      const updatedWebhook = {
         ...webhook,
         enabled,
-      });
-      setIsEnabled(enabled);
+      };
+      await onUpdate(updatedWebhook);
+      setIsEnabled(enabled); // Only update local state after successful API call
     } catch (error) {
       console.error("Failed to update webhook:", error);
+      setIsEnabled(!enabled); // Revert the switch if the update failed
     }
   };
 
@@ -52,7 +54,15 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Switch isSelected={isEnabled} onValueChange={handleToggle} aria-label="Enable webhook" />
+          <Switch
+            isSelected={isEnabled}
+            onValueChange={handleToggle}
+            aria-label="Enable webhook"
+            classNames={{
+              base: "inline-flex flex-row-reverse gap-2",
+              wrapper: "group-data-[selected=true]:bg-primary",
+            }}
+          />
           <Button isIconOnly variant="light" onClick={handleTest} isLoading={isTesting} startContent={!isTesting && <TestTubes size={20} />} />
           <Button isIconOnly variant="light" color="danger" onClick={() => onDelete(webhook.id)} startContent={<Trash2 size={20} />} />
         </div>
