@@ -2,7 +2,7 @@
 
 import { Listbox, ListboxItem } from "@nextui-org/react";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, Package2, Webhook } from "lucide-react";
+import { LayoutDashboard, Package2, Webhook, TextCursor } from "lucide-react";
 
 export default function Sidebar() {
   const router = useRouter();
@@ -26,6 +26,12 @@ export default function Sidebar() {
       label: "Webhooks",
       icon: <Webhook size={24} />,
       path: "/webhooks",
+    },
+    {
+      key: "webhook-templates",
+      label: "Webhook Templates",
+      icon: <TextCursor size={24} />,
+      path: "/webhook-templates",
     },
   ];
 

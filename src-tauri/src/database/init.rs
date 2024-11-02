@@ -1,3 +1,4 @@
+// src-tauri/src/database/init.rs
 use rusqlite::{Connection, Result};
 use std::path::Path;
 use tauri::AppHandle;
@@ -41,7 +42,8 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
             url TEXT NOT NULL,
             avatar_url TEXT,
             username TEXT,
-            enabled BOOLEAN NOT NULL DEFAULT 1
+            enabled BOOLEAN NOT NULL DEFAULT 1,
+            use_custom_template BOOLEAN NOT NULL DEFAULT 0
         )",
         [],
     )?;
@@ -55,6 +57,39 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
             FOREIGN KEY (mod_id) REFERENCES mods (id) ON DELETE CASCADE,
             FOREIGN KEY (webhook_id) REFERENCES webhooks (id) ON DELETE CASCADE
         )",
+        [],
+    )?;
+
+    // Create webhook_templates table if it doesn't exist
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS webhook_templates (
+            id INTEGER PRIMARY KEY,
+            is_default BOOLEAN NOT NULL DEFAULT 0,
+            webhook_id INTEGER UNIQUE,
+            title TEXT NOT NULL DEFAULT '🔄 Mod Update Available!',
+            color INTEGER NOT NULL DEFAULT 5814783,
+            content TEXT,
+            use_embed BOOLEAN NOT NULL DEFAULT 1,
+            embed_fields TEXT NOT NULL DEFAULT '[
+                {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
+                {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
+                {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
+                {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
+            ]',
+            FOREIGN KEY (webhook_id) REFERENCES webhooks (id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Insert default template if it doesn't exist
+    connection.execute(
+        "INSERT OR IGNORE INTO webhook_templates (is_default, title, color, use_embed, embed_fields)
+         VALUES (1, '🔄 Mod Update Available!', 5814783, 1, '[
+            {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
+            {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
+            {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
+            {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
+         ]')",
         [],
     )?;
 

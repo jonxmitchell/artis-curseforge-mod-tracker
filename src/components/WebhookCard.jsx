@@ -1,13 +1,14 @@
 "use client";
 
-import { Card, CardBody, Button, Switch, Tooltip } from "@nextui-org/react";
-import { Trash2, TestTubes, Bot } from "lucide-react";
+import { Card, CardBody, Button, Switch, Tooltip, Popover, PopoverTrigger, PopoverContent } from "@nextui-org/react";
+import { Trash2, TestTubes, Bot, Settings, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 
 export default function WebhookCard({ webhook, onDelete, onUpdate }) {
   const [isTesting, setIsTesting] = useState(false);
   const [isEnabled, setIsEnabled] = useState(webhook.enabled);
+  const [useCustomTemplate, setUseCustomTemplate] = useState(webhook.use_custom_template);
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -28,10 +29,30 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
         enabled,
       };
       await onUpdate(updatedWebhook);
-      setIsEnabled(enabled); // Only update local state after successful API call
+      setIsEnabled(enabled);
     } catch (error) {
       console.error("Failed to update webhook:", error);
-      setIsEnabled(!enabled); // Revert the switch if the update failed
+      setIsEnabled(!enabled);
+    }
+  };
+
+  const handleTemplateToggle = async (useCustom) => {
+    try {
+      const updatedWebhook = {
+        ...webhook,
+        use_custom_template: useCustom,
+      };
+
+      await onUpdate(updatedWebhook);
+      setUseCustomTemplate(useCustom);
+
+      if (!useCustom) {
+        // Delete custom template when switching back to default
+        await invoke("delete_custom_template", { webhookId: webhook.id });
+      }
+    } catch (error) {
+      console.error("Failed to update template settings:", error);
+      setUseCustomTemplate(!useCustom); // Revert on error
     }
   };
 
@@ -51,6 +72,10 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
             )}
           </div>
           <p className="text-sm text-default-500 truncate max-w-lg">{webhook.url}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <MessageSquare size={16} className="text-default-400" />
+            <span className="text-sm text-default-400">Using {useCustomTemplate ? "custom" : "default"} template</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -64,7 +89,24 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
             }}
           />
           <Button isIconOnly variant="light" onClick={handleTest} isLoading={isTesting} startContent={!isTesting && <TestTubes size={20} />} />
-          <Button isIconOnly variant="light" color="danger" onClick={() => onDelete(webhook.id)} startContent={<Trash2 size={20} />} />
+          <Popover placement="bottom-end">
+            <PopoverTrigger>
+              <Button isIconOnly variant="light" startContent={<Settings size={20} />} />
+            </PopoverTrigger>
+            <PopoverContent>
+              <div className="p-4 space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h4 className="text-sm font-semibold">Template Settings</h4>
+                  <Switch isSelected={useCustomTemplate} onValueChange={handleTemplateToggle}>
+                    Use Custom Template
+                  </Switch>
+                </div>
+                <Button color="danger" variant="flat" className="w-full" startContent={<Trash2 size={18} />} onClick={() => onDelete(webhook.id)}>
+                  Delete Webhook
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </CardBody>
     </Card>

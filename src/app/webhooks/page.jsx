@@ -17,6 +17,7 @@ export default function WebhooksPage() {
     username: "",
     avatar_url: "",
     enabled: true,
+    use_custom_template: false,
   });
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function WebhooksPage() {
         username: "",
         avatar_url: "",
         enabled: true,
+        use_custom_template: false,
       });
     } catch (error) {
       console.error("Failed to add webhook:", error);

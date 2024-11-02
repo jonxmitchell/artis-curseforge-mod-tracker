@@ -1,4 +1,5 @@
-use crate::database::{webhooks, Webhook};
+// src-tauri/src/commands/webhook_commands.rs
+use crate::database::{webhooks, Webhook, WebhookTemplate};
 use rusqlite::Connection;
 use tauri::AppHandle;
 use crate::database::{get_database_path, ensure_database_exists};
@@ -59,6 +60,27 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
         .map_err(|e| e.to_string())?;
 
     Ok(response.status().is_success())
+}
+
+#[tauri::command]
+pub fn get_webhook_template(app_handle: AppHandle, webhook_id: i64) -> Result<WebhookTemplate, String> {
+    let db_path = get_database_path(&app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    webhooks::get_webhook_template(&conn, webhook_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_webhook_template(app_handle: AppHandle, template: WebhookTemplate) -> Result<(), String> {
+    let db_path = get_database_path(&app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    webhooks::update_webhook_template(&conn, &template).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_custom_template(app_handle: AppHandle, webhook_id: i64) -> Result<(), String> {
+    let db_path = get_database_path(&app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    webhooks::delete_custom_template(&conn, webhook_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

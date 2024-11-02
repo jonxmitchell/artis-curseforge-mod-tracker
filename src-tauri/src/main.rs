@@ -34,6 +34,9 @@ fn main() {
             delete_webhook,
             test_webhook,
             send_update_notification,
+            get_webhook_template,
+            update_webhook_template,
+            delete_custom_template,
             // Settings commands
             get_api_key,
             set_api_key,
