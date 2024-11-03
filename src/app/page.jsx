@@ -8,6 +8,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import Settings from "@/components/Settings";
 import { useRouter } from "next/navigation";
 import AddModModal from "@/components/AddModModal";
+import { useModUpdateChecker } from "@/hooks/useModUpdateChecker";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -16,11 +17,11 @@ export default function DashboardPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState(null);
   const [updateInterval, setUpdateInterval] = useState(30);
   const [lastChecked, setLastChecked] = useState(null);
   const [showQuickStart, setShowQuickStart] = useState(true);
+  const { isChecking, error: updateError, checkForUpdates } = useModUpdateChecker();
 
   useEffect(() => {
     loadData();
@@ -50,82 +51,10 @@ export default function DashboardPage() {
   };
 
   const handleManualCheck = async () => {
-    try {
-      setIsChecking(true);
-      setError(null);
-
-      // First, load the latest data
-      const latestMods = await invoke("get_mods");
-      console.log("Starting update check for", latestMods.length, "mods");
-
-      // Check each mod for updates using the latest data
-      for (const mod of latestMods) {
-        const modId = mod.mod_info ? mod.mod_info.id : mod.id;
-        const curseforgeId = mod.mod_info ? mod.mod_info.curseforge_id : mod.curseforge_id;
-        const currentLastUpdated = mod.mod_info ? mod.mod_info.last_updated : mod.last_updated;
-
-        console.log("Checking mod:", {
-          modId,
-          curseforgeId,
-          currentLastUpdated,
-        });
-
-        const apiKey = await invoke("get_api_key");
-        const updateInfo = await invoke("check_mod_update", {
-          modId,
-          curseforgeId,
-          currentLastUpdated,
-          apiKey,
-        });
-
-        console.log("Update check result:", updateInfo);
-
-        if (updateInfo) {
-          console.log("Update found for mod:", modId);
-
-          // If there's an update, send notifications through enabled webhooks
-          const modWebhooks = await invoke("get_mod_assigned_webhooks", { modId });
-          console.log("Assigned webhooks:", modWebhooks);
-
-          for (const webhook of modWebhooks) {
-            if (webhook.enabled) {
-              console.log("Sending notification through webhook:", webhook.id);
-              console.log("UpdateInfo data:", updateInfo);
-              try {
-                const result = await invoke("send_update_notification", {
-                  webhook,
-                  modName: updateInfo.name,
-                  modAuthor: updateInfo.mod_author,
-                  newReleaseDate: updateInfo.new_update_time,
-                  oldReleaseDate: updateInfo.old_update_time,
-                  latestFileName: updateInfo.latest_file_name, // Changed from latest_file_name to latestFileName
-                  modId: updateInfo.mod_id,
-                });
-                console.log("Notification result:", result);
-              } catch (error) {
-                console.error("Failed to send webhook notification:", error);
-                console.error("Webhook data:", webhook);
-                console.error("Update info:", updateInfo);
-              }
-            }
-          }
-        } else {
-          console.log("No update found for mod:", modId);
-        }
-      }
-
-      // Reset countdown timer
-      localStorage.setItem("nextCheckTime", new Date(Date.now() + updateInterval * 60 * 1000).toISOString());
-
-      // Update state with latest data
+    await checkForUpdates(updateInterval, (latestMods, updatesFound) => {
       setMods(latestMods);
       setLastChecked(new Date());
-    } catch (error) {
-      console.error("Failed to check for updates:", error);
-      setError("Failed to check for updates. Please try again.");
-    } finally {
-      setIsChecking(false);
-    }
+    });
   };
 
   const getModsByGame = () => {
@@ -153,11 +82,11 @@ export default function DashboardPage() {
     return <div className="text-center p-8">Loading dashboard...</div>;
   }
 
-  if (error) {
+  if (error || updateError) {
     return (
       <div className="text-center p-8">
         <AlertTriangle className="mx-auto h-12 w-12 text-danger mb-4" />
-        <p className="text-danger">{error}</p>
+        <p className="text-danger">{error || updateError}</p>
         <Button color="primary" variant="light" className="mt-4" onPress={loadData}>
           Retry
         </Button>
