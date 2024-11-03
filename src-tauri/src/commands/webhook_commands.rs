@@ -101,7 +101,7 @@ pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), Stri
 pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
     let client = Client::new();
     
-    // Create base payload
+    // Build base payload
     let mut payload = json!({
         "embeds": [{
             "title": "🧪 Test Message",
@@ -114,15 +114,10 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
         }]
     });
 
-    // Add username if provided and not empty
-    match &webhook.username {
-        Some(username) if !username.trim().is_empty() => {
-            payload["username"] = json!(username);
-        }
-        _ => {
-            payload["username"] = json!("Mod Tracker");
-        }
-    }
+    // Set guaranteed valid username
+    payload["username"] = json!(webhook.username
+        .and_then(|u| if u.trim().is_empty() { None } else { Some(u) })
+        .unwrap_or_else(|| "Mod Tracker".to_string()));
 
     // Add avatar_url if provided and not empty
     if let Some(avatar_url) = &webhook.avatar_url {
@@ -130,6 +125,8 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
             payload["avatar_url"] = json!(avatar_url);
         }
     }
+
+    println!("Sending test webhook payload: {}", serde_json::to_string_pretty(&payload).unwrap());
 
     let response = client
         .post(&webhook.url)
@@ -140,6 +137,7 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
 
     if !response.status().is_success() {
         let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        println!("Discord API error: {}", error_text);
         return Err(format!("Discord API error: {}", error_text));
     }
 
@@ -191,25 +189,36 @@ pub async fn send_update_notification(
             .collect::<Vec<_>>()
     });
 
-    // Add author if specified
-    if let Some(author_name) = template.author_name {
-        let mut author = json!({
-            "name": replace_template_variables(&author_name, &update_data)
-        });
-        if let Some(icon_url) = template.author_icon_url {
-            author["icon_url"] = json!(replace_template_variables(&icon_url, &update_data));
+    // Add author if specified and not empty
+    if let Some(author_name) = &template.author_name {
+        if !author_name.trim().is_empty() {
+            let mut author = json!({
+                "name": replace_template_variables(author_name, &update_data)
+            });
+            if let Some(icon_url) = &template.author_icon_url {
+                if !icon_url.trim().is_empty() {
+                    author["icon_url"] = json!(replace_template_variables(icon_url, &update_data));
+                }
+            }
+            embed["author"] = author;
         }
-        embed["author"] = author;
     }
 
-    // Add footer if specified
-    if template.footer_text.is_some() || template.footer_icon_url.is_some() || template.include_timestamp {
+    // Add footer if any footer content exists
+    if template.footer_text.as_ref().map_or(false, |t| !t.trim().is_empty()) 
+        || template.footer_icon_url.as_ref().map_or(false, |u| !u.trim().is_empty()) 
+        || template.include_timestamp 
+    {
         let mut footer = json!({});
-        if let Some(text) = template.footer_text {
-            footer["text"] = json!(replace_template_variables(&text, &update_data));
+        if let Some(text) = &template.footer_text {
+            if !text.trim().is_empty() {
+                footer["text"] = json!(replace_template_variables(text, &update_data));
+            }
         }
-        if let Some(icon_url) = template.footer_icon_url {
-            footer["icon_url"] = json!(replace_template_variables(&icon_url, &update_data));
+        if let Some(icon_url) = &template.footer_icon_url {
+            if !icon_url.trim().is_empty() {
+                footer["icon_url"] = json!(replace_template_variables(icon_url, &update_data));
+            }
         }
         embed["footer"] = footer;
     }
@@ -219,17 +228,29 @@ pub async fn send_update_notification(
         embed["timestamp"] = json!(chrono::Utc::now().to_rfc3339());
     }
 
+    // Build the base payload with a guaranteed valid username
     let mut payload = json!({
-        "username": webhook.username.unwrap_or_else(|| "Mod Tracker".to_string()),
-        "avatar_url": webhook.avatar_url,
+        "username": webhook.username
+            .and_then(|u| if u.trim().is_empty() { None } else { Some(u) })
+            .unwrap_or_else(|| "Mod Tracker".to_string()),
     });
+
+    // Only add avatar_url if it exists and is not empty
+    if let Some(avatar_url) = &webhook.avatar_url {
+        if !avatar_url.trim().is_empty() {
+            payload["avatar_url"] = json!(avatar_url);
+        }
+    }
 
     if template.use_embed {
         payload["embeds"] = json!([embed]);
     } else {
-        let content = template.content.unwrap_or_else(|| "🔄 Mod Update Available!".to_string());
+        let content = template.content
+            .unwrap_or_else(|| "🔄 Mod Update Available!".to_string());
         payload["content"] = json!(replace_template_variables(&content, &update_data));
     }
+
+    println!("Sending webhook payload: {}", serde_json::to_string_pretty(&payload).unwrap());
 
     let response = client
         .post(&webhook.url)
@@ -237,6 +258,12 @@ pub async fn send_update_notification(
         .send()
         .await
         .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        println!("Discord API error: {}", error_text);
+        return Err(format!("Discord API error: {}", error_text));
+    }
 
     Ok(response.status().is_success())
 }

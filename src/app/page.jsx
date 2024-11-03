@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody, Button, Chip } from "@nextui-org/react";
 import UpdateCountdown from "@/components/UpdateCountdown";
-import { ArrowUpRight, Package2, Webhook, Clock, Bell, Settings as SettingsIcon, Gamepad2, AlertTriangle, X } from "lucide-react";
+import { ArrowUpRight, Package2, Webhook, Clock, Bell, Settings as SettingsIcon, Gamepad2, AlertTriangle, X, RefreshCw } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import Settings from "@/components/Settings";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState(null);
   const [updateInterval, setUpdateInterval] = useState(30);
   const [lastChecked, setLastChecked] = useState(null);
@@ -46,6 +47,85 @@ export default function DashboardPage() {
   const handleAddMod = async (curseforgeId, apiKey) => {
     const newMod = await invoke("add_mod", { curseforgeId, apiKey });
     setMods((prevMods) => [...prevMods, newMod]);
+  };
+
+  const handleManualCheck = async () => {
+    try {
+      setIsChecking(true);
+      setError(null);
+
+      // First, load the latest data
+      const latestMods = await invoke("get_mods");
+      console.log("Starting update check for", latestMods.length, "mods");
+
+      // Check each mod for updates using the latest data
+      for (const mod of latestMods) {
+        const modId = mod.mod_info ? mod.mod_info.id : mod.id;
+        const curseforgeId = mod.mod_info ? mod.mod_info.curseforge_id : mod.curseforge_id;
+        const currentLastUpdated = mod.mod_info ? mod.mod_info.last_updated : mod.last_updated;
+
+        console.log("Checking mod:", {
+          modId,
+          curseforgeId,
+          currentLastUpdated,
+        });
+
+        const apiKey = await invoke("get_api_key");
+        const updateInfo = await invoke("check_mod_update", {
+          modId,
+          curseforgeId,
+          currentLastUpdated,
+          apiKey,
+        });
+
+        console.log("Update check result:", updateInfo);
+
+        if (updateInfo) {
+          console.log("Update found for mod:", modId);
+
+          // If there's an update, send notifications through enabled webhooks
+          const modWebhooks = await invoke("get_mod_assigned_webhooks", { modId });
+          console.log("Assigned webhooks:", modWebhooks);
+
+          for (const webhook of modWebhooks) {
+            if (webhook.enabled) {
+              console.log("Sending notification through webhook:", webhook.id);
+              console.log("UpdateInfo data:", updateInfo);
+              try {
+                const result = await invoke("send_update_notification", {
+                  webhook,
+                  modName: updateInfo.name,
+                  modAuthor: updateInfo.mod_author,
+                  newReleaseDate: updateInfo.new_update_time,
+                  oldReleaseDate: updateInfo.old_update_time,
+                  latestFileName: updateInfo.latest_file_name, // Changed from latest_file_name to latestFileName
+                  modId: updateInfo.mod_id,
+                });
+                console.log("Notification result:", result);
+              } catch (error) {
+                console.error("Failed to send webhook notification:", error);
+                console.error("Webhook data:", webhook);
+                console.error("Update info:", updateInfo);
+              }
+            }
+          }
+        } else {
+          console.log("No update found for mod:", modId);
+        }
+      }
+
+      // Reset countdown timer
+      localStorage.setItem("nextCheckTime", new Date(Date.now() + updateInterval * 60 * 1000).toISOString());
+
+      // Update state with latest data
+      setMods(latestMods);
+      setLastChecked(new Date());
+    } catch (error) {
+      console.error("Failed to check for updates:", error);
+      setError("Failed to check for updates. Please try again.");
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const getModsByGame = () => {
@@ -96,9 +176,14 @@ export default function DashboardPage() {
     <div className="container mx-auto max-w-5xl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Button color="primary" variant="ghost" startContent={<SettingsIcon size={20} />} onPress={() => setIsSettingsOpen(true)}>
-          Settings
-        </Button>
+        <div className="flex gap-2">
+          <Button color="primary" variant="flat" startContent={<RefreshCw size={20} className={isChecking ? "animate-spin" : ""} />} onPress={handleManualCheck} isLoading={isChecking} isDisabled={isChecking || mods.length === 0}>
+            Check Updates
+          </Button>
+          <Button color="primary" variant="ghost" startContent={<SettingsIcon size={20} />} onPress={() => setIsSettingsOpen(true)}>
+            Settings
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -234,7 +319,7 @@ export default function DashboardPage() {
               <CardBody>
                 <ol className="list-decimal list-inside space-y-2">
                   <li>Add your CurseForge API key in Settings</li>
-                  <li>Go to the Mods page and click &quot;Add Mod&quot;</li>
+                  <li>Go to the Mods page and click "Add Mod"</li>
                   <li>Enter the CurseForge mod ID</li>
                   <li>Set up Discord webhooks to receive notifications</li>
                 </ol>

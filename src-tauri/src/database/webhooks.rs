@@ -186,7 +186,34 @@ pub fn get_webhook_template(conn: &Connection, webhook_id: i64) -> Result<Webhoo
                 embed_fields: row.get(12)?,
             })
         },
-    )?;
+    ).or_else(|_| {
+        // If no template found, return the default one
+        conn.query_row(
+            "SELECT id, is_default, webhook_id, title, color, content, use_embed,
+                    author_name, author_icon_url, footer_text, footer_icon_url,
+                    include_timestamp, embed_fields
+             FROM webhook_templates
+             WHERE is_default = 1",
+            [],
+            |row| {
+                Ok(WebhookTemplate {
+                    id: Some(row.get(0)?),
+                    is_default: row.get(1)?,
+                    webhook_id: row.get(2)?,
+                    title: row.get(3)?,
+                    color: row.get(4)?,
+                    content: row.get(5)?,
+                    use_embed: row.get(6)?,
+                    author_name: row.get(7)?,
+                    author_icon_url: row.get(8)?,
+                    footer_text: row.get(9)?,
+                    footer_icon_url: row.get(10)?,
+                    include_timestamp: row.get(11)?,
+                    embed_fields: row.get(12)?,
+                })
+            },
+        )
+    })?;
 
     Ok(template)
 }
