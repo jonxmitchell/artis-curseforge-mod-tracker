@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input, Select, SelectItem } from "@nextui-org/react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { emit } from "@tauri-apps/api/event";
 
 const UPDATE_INTERVALS = [
   { value: 5, label: "5 minutes" },
@@ -47,6 +48,8 @@ export default function Settings({ isOpen, onClose }) {
     try {
       setIsSaving(true);
       await Promise.all([invoke("set_api_key", { apiKey }), invoke("set_update_interval", { interval: parseInt(updateInterval) })]);
+      // Emit an event when interval changes
+      emit("update_interval_changed", { interval: parseInt(updateInterval) });
       onClose();
     } catch (error) {
       console.error("Failed to save settings:", error);

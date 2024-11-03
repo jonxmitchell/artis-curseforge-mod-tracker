@@ -1,9 +1,11 @@
+// UpdateCountdown.jsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { Card, CardBody } from "@nextui-org/react";
 import { Clock } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { listen } from "@tauri-apps/api/event";
 import { useModUpdateChecker } from "@/hooks/useModUpdateChecker";
 
 export default function UpdateCountdown() {
@@ -13,12 +15,34 @@ export default function UpdateCountdown() {
   const { isChecking, checkForUpdates } = useModUpdateChecker();
 
   useEffect(() => {
-    // Initialize countdown on mount
-    initializeCountdown();
+    let timer;
+    let unlisten;
 
-    // Start the timer
-    const timer = setInterval(updateCountdown, 1000);
-    return () => clearInterval(timer);
+    const setup = async () => {
+      // Listen for interval changes
+      unlisten = await listen("update_interval_changed", (event) => {
+        const newInterval = event.payload.interval;
+        setUpdateInterval(newInterval);
+        // Reset countdown with new interval
+        const now = new Date();
+        const nextCheck = new Date(now.getTime() + newInterval * 60 * 1000);
+        localStorage.setItem("nextCheckTime", nextCheck.toISOString());
+        updateCountdown();
+      });
+
+      // Initialize countdown on mount
+      await initializeCountdown();
+
+      // Start the timer
+      timer = setInterval(updateCountdown, 1000);
+    };
+
+    setup();
+
+    return () => {
+      if (timer) clearInterval(timer);
+      if (unlisten) unlisten();
+    };
   }, []);
 
   const initializeCountdown = async () => {
@@ -48,14 +72,6 @@ export default function UpdateCountdown() {
 
   const updateCountdown = async () => {
     try {
-      // Get current interval from settings each time
-      const currentInterval = await invoke("get_update_interval");
-
-      // Update interval if it changed
-      if (currentInterval !== updateInterval) {
-        setUpdateInterval(currentInterval);
-      }
-
       const nextCheck = localStorage.getItem("nextCheckTime");
       if (!nextCheck) return;
 
@@ -65,10 +81,10 @@ export default function UpdateCountdown() {
 
       if (diff <= 0) {
         // Time to check for updates
-        await checkForUpdates(currentInterval);
+        await checkForUpdates(updateInterval);
 
         // Reset the countdown after check completes
-        const newNext = new Date(now.getTime() + currentInterval * 60 * 1000);
+        const newNext = new Date(now.getTime() + updateInterval * 60 * 1000);
         localStorage.setItem("nextCheckTime", newNext.toISOString());
         updateCountdown();
       } else {

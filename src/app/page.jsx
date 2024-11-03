@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody, Button, Chip } from "@nextui-org/react";
 import UpdateCountdown from "@/components/UpdateCountdown";
-import { ArrowUpRight, Package2, Webhook, Clock, Bell, Settings as SettingsIcon, Gamepad2, AlertTriangle, X, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Package2, Webhook, Clock, Settings as SettingsIcon, Gamepad2, AlertTriangle, X, RefreshCw } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { listen } from "@tauri-apps/api/event";
 import Settings from "@/components/Settings";
 import { useRouter } from "next/navigation";
 import AddModModal from "@/components/AddModModal";
@@ -24,7 +25,23 @@ export default function DashboardPage() {
   const { isChecking, error: updateError, checkForUpdates } = useModUpdateChecker();
 
   useEffect(() => {
-    loadData();
+    let unlisten;
+
+    const setup = async () => {
+      // Setup event listener for interval changes
+      unlisten = await listen("update_interval_changed", (event) => {
+        setUpdateInterval(event.payload.interval);
+      });
+
+      await loadData();
+    };
+
+    setup();
+
+    // Cleanup listener on unmount
+    return () => {
+      if (unlisten) unlisten();
+    };
   }, []);
 
   const loadData = async () => {
@@ -76,6 +93,12 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Failed to update quick start preference:", error);
     }
+  };
+
+  const formatInterval = (minutes) => {
+    if (minutes < 60) return `${minutes} minutes`;
+    const hours = minutes / 60;
+    return hours === 1 ? "1 hour" : `${hours} hours`;
   };
 
   if (isLoading) {
@@ -161,7 +184,7 @@ export default function DashboardPage() {
             <Clock size={20} className="text-default-500" />
             <div>
               <p className="text-sm text-default-500">Update Interval</p>
-              <p>Checking every {updateInterval} minutes</p>
+              <p>Checking every {formatInterval(updateInterval)}</p>
             </div>
           </div>
           {lastChecked && (
