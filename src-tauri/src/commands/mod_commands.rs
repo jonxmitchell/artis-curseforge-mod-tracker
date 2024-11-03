@@ -19,8 +19,34 @@ pub struct CurseForgeModData {
     latest_files_indexes: Vec<LatestFileIndex>,
     #[serde(rename = "gameId")]
     game_id: i64,
-    #[serde(rename = "dateReleased")]
+    #[serde(rename = "dateModified")]
     date_modified: String,
+    #[serde(rename = "dateReleased")]
+    date_released: String,
+    authors: Vec<ModAuthor>,
+    #[serde(rename = "latestFiles")]
+    latest_files: Vec<ModFile>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModAuthor {
+    name: String,
+    url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModFile {
+    #[serde(rename = "fileName")]
+    file_name: String,
+    #[serde(rename = "gameVersion")]
+    game_version: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LatestFileIndex {
+    #[serde(rename = "gameVersion")]
+    game_version: String,
+    filename: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,19 +60,17 @@ pub struct CurseForgeGameData {
     name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LatestFileIndex {
-    #[serde(rename = "gameVersion")]
-    game_version: String,
-    filename: String,
-}
-
 #[derive(Debug, Serialize)]
 pub struct ModUpdateInfo {
-    mod_id: i64,
-    name: String,
-    old_update_time: String,
-    new_update_time: String,
+    pub mod_id: i64,
+    pub name: String,
+    pub old_update_time: String,
+    pub new_update_time: String,
+    pub game_version: String,
+    pub old_version: String,
+    pub new_version: String,
+    pub mod_author: String,
+    pub latest_file_name: String,
 }
 
 async fn get_game_name(client: &reqwest::Client, game_id: i64, api_key: &str) -> Result<String, String> {
@@ -194,11 +218,27 @@ pub async fn check_mod_update(
         mods::update_mod_last_updated(&conn, mod_id, &new_date)
             .map_err(|e| e.to_string())?;
 
+        // Extract the latest file info and game version
+        let latest_file = curse_data.data.latest_files.first()
+            .ok_or_else(|| "No files found for mod".to_string())?;
+        let game_version = latest_file.game_version.first()
+            .ok_or_else(|| "No game version found".to_string())?;
+
+        // Extract the author info
+        let author_name = curse_data.data.authors.first()
+            .map(|author| author.name.clone())
+            .unwrap_or_else(|| "Unknown Author".to_string());
+
         Ok(Some(ModUpdateInfo {
             mod_id,
             name: curse_data.data.name,
             old_update_time: current_last_updated,
             new_update_time: new_date,
+            game_version: game_version.clone(),
+            old_version: "Previous Version".to_string(), // You might want to store and track this
+            new_version: latest_file.file_name.clone(),
+            mod_author: author_name,
+            latest_file_name: latest_file.file_name.clone(),
         }))
     } else {
         Ok(None)

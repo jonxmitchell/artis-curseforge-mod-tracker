@@ -6,6 +6,68 @@ use reqwest::Client;
 use serde_json::json;
 use anyhow::Result;
 
+#[derive(Debug)]
+struct ModUpdateData {
+    mod_id: i64,
+    mod_name: String,
+    game_version: String,
+    old_version: String,
+    new_version: String,
+    mod_author: String,
+    new_release_date: String,
+    old_release_date: String,
+    latest_file_name: String,
+}
+
+fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
+    let mut result = text.to_string();
+    
+    // Basic replacements
+    let replacements = vec![
+        ("{modID}", data.mod_id.to_string()),
+        ("{modName}", data.mod_name.clone()),
+        ("{newReleaseDate}", data.new_release_date.clone()),
+        ("{oldPreviousDate}", data.old_release_date.clone()),
+        ("{everyone}", "@everyone".to_string()),
+        ("{here}", "@here".to_string()),
+        ("{lastestModFileName}", data.latest_file_name.clone()),
+        ("{modAuthorName}", data.mod_author.clone()),
+        ("{game_version}", data.game_version.clone()),
+        ("{old_version}", data.old_version.clone()),
+        ("{new_version}", data.new_version.clone())
+    ];
+
+    for (key, value) in replacements {
+        result = result.replace(key, &value);
+    }
+
+    // Role mentions
+    while let Some(start) = result.find("{&") {
+        if let Some(end) = result[start..].find("}") {
+            let role_id = &result[start + 2..start + end];
+            if let Ok(id) = role_id.parse::<u64>() {
+                result = result.replace(&format!("{{&{}}}", role_id), &format!("<@&{}>", id));
+            }
+        } else {
+            break;
+        }
+    }
+
+    // Channel mentions
+    while let Some(start) = result.find("{#") {
+        if let Some(end) = result[start..].find("}") {
+            let channel_id = &result[start + 2..start + end];
+            if let Ok(id) = channel_id.parse::<u64>() {
+                result = result.replace(&format!("{{#{}}}", channel_id), &format!("<#{}>", id));
+            }
+        } else {
+            break;
+        }
+    }
+
+    result
+}
+
 #[tauri::command]
 pub fn add_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<Webhook, String> {
     let db_path = get_database_path(&app_handle);
@@ -74,6 +136,107 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub async fn send_update_notification(
+    app_handle: AppHandle,
+    webhook: Webhook,
+    mod_name: String,
+    old_version: String,
+    new_version: String,
+    game_version: String,
+    mod_author: String,
+    new_release_date: String,
+    old_release_date: String,
+    latest_file_name: String,
+    mod_id: i64,
+) -> Result<bool, String> {
+    let client = Client::new();
+    
+    // Get the webhook template
+    let db_path = get_database_path(&app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    let template = webhooks::get_webhook_template(&conn, webhook.id.unwrap_or(-1))
+        .map_err(|e| e.to_string())?;
+
+    let update_data = ModUpdateData {
+        mod_id,
+        mod_name: mod_name.clone(),
+        game_version: game_version.clone(),
+        old_version: old_version.clone(),
+        new_version: new_version.clone(),
+        mod_author,
+        new_release_date,
+        old_release_date,
+        latest_file_name,
+    };
+
+    let mut embed = json!({
+        "title": replace_template_variables(&template.title, &update_data),
+        "color": template.color,
+        "fields": serde_json::from_str::<Vec<serde_json::Value>>(&template.embed_fields)
+            .map_err(|e| e.to_string())?
+            .iter()
+            .map(|field| {
+                let mut new_field = field.clone();
+                let name = field["name"].as_str().unwrap_or("");
+                let value = field["value"].as_str().unwrap_or("");
+                new_field["name"] = json!(replace_template_variables(name, &update_data));
+                new_field["value"] = json!(replace_template_variables(value, &update_data));
+                new_field
+            })
+            .collect::<Vec<_>>()
+    });
+
+    // Add author if specified
+    if let Some(author_name) = template.author_name {
+        let mut author = json!({
+            "name": replace_template_variables(&author_name, &update_data)
+        });
+        if let Some(icon_url) = template.author_icon_url {
+            author["icon_url"] = json!(replace_template_variables(&icon_url, &update_data));
+        }
+        embed["author"] = author;
+    }
+
+    // Add footer if specified
+    if template.footer_text.is_some() || template.footer_icon_url.is_some() || template.include_timestamp {
+        let mut footer = json!({});
+        if let Some(text) = template.footer_text {
+            footer["text"] = json!(replace_template_variables(&text, &update_data));
+        }
+        if let Some(icon_url) = template.footer_icon_url {
+            footer["icon_url"] = json!(replace_template_variables(&icon_url, &update_data));
+        }
+        embed["footer"] = footer;
+    }
+
+    // Add timestamp if enabled
+    if template.include_timestamp {
+        embed["timestamp"] = json!(chrono::Utc::now().to_rfc3339());
+    }
+
+    let mut payload = json!({
+        "username": webhook.username.unwrap_or_else(|| "Mod Tracker".to_string()),
+        "avatar_url": webhook.avatar_url,
+    });
+
+    if template.use_embed {
+        payload["embeds"] = json!([embed]);
+    } else {
+        let content = template.content.unwrap_or_else(|| "🔄 Mod Update Available!".to_string());
+        payload["content"] = json!(replace_template_variables(&content, &update_data));
+    }
+
+    let response = client
+        .post(&webhook.url)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(response.status().is_success())
+}
+
+#[tauri::command]
 pub fn get_webhook_template(app_handle: AppHandle, webhook_id: i64) -> Result<WebhookTemplate, String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
@@ -92,94 +255,4 @@ pub fn delete_custom_template(app_handle: AppHandle, webhook_id: i64) -> Result<
     let db_path = get_database_path(&app_handle);
     let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
     webhooks::delete_custom_template(&mut conn, webhook_id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn send_update_notification(
-    app_handle: AppHandle,
-    webhook: Webhook,
-    mod_name: String,
-    old_version: String,
-    new_version: String,
-    game_version: String
-) -> Result<bool, String> {
-    let client = Client::new();
-    
-    // Get the webhook template
-    let db_path = get_database_path(&app_handle);
-    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    let template = webhooks::get_webhook_template(&conn, webhook.id.unwrap_or(-1))
-        .map_err(|e| e.to_string())?;
-
-    let mut embed = json!({
-        "title": template.title,
-        "color": template.color,
-        "fields": serde_json::from_str::<Vec<serde_json::Value>>(&template.embed_fields)
-            .map_err(|e| e.to_string())?
-            .iter()
-            .map(|field| {
-                let mut field = field.clone();
-                let value = field["value"].as_str().unwrap_or("");
-                field["value"] = json!(value
-                    .replace("{mod_name}", &mod_name)
-                    .replace("{game_version}", &game_version)
-                    .replace("{old_version}", &old_version)
-                    .replace("{new_version}", &new_version));
-                field
-            })
-            .collect::<Vec<_>>()
-    });
-
-    // Add author if specified
-    if let Some(author_name) = template.author_name {
-        let mut author = json!({
-            "name": author_name
-        });
-        if let Some(icon_url) = template.author_icon_url {
-            author["icon_url"] = json!(icon_url);
-        }
-        embed["author"] = author;
-    }
-
-    // Add footer if specified
-    if template.footer_text.is_some() || template.footer_icon_url.is_some() || template.include_timestamp {
-        let mut footer = json!({});
-        if let Some(text) = template.footer_text {
-            footer["text"] = json!(text);
-        }
-        if let Some(icon_url) = template.footer_icon_url {
-            footer["icon_url"] = json!(icon_url);
-        }
-        embed["footer"] = footer;
-    }
-
-    // Add timestamp if enabled
-    if template.include_timestamp {
-        embed["timestamp"] = json!(chrono::Utc::now().to_rfc3339());
-    }
-
-    let mut payload = json!({
-        "username": webhook.username.unwrap_or_else(|| "Mod Tracker".to_string()),
-        "avatar_url": webhook.avatar_url,
-    });
-
-    if template.use_embed {
-        payload["embeds"] = json!([embed]);
-    } else {
-        let content = template.content.unwrap_or_else(|| "🔄 Mod Update Available!".to_string())
-            .replace("{mod_name}", &mod_name)
-            .replace("{game_version}", &game_version)
-            .replace("{old_version}", &old_version)
-            .replace("{new_version}", &new_version);
-        payload["content"] = json!(content);
-    }
-
-    let response = client
-        .post(&webhook.url)
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(response.status().is_success())
 }

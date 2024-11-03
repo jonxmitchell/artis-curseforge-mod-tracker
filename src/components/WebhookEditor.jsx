@@ -1,9 +1,67 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardBody, Input, Switch, Button, Textarea } from "@nextui-org/react";
-import { Trash2, Plus, Move } from "lucide-react";
+import { Card, CardBody, Input, Switch, Button, Textarea, Popover, PopoverTrigger, PopoverContent } from "@nextui-org/react";
+import { Trash2, Plus, Move, Info } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
+
+function TemplateVariablesHelp() {
+  return (
+    <Popover placement="right">
+      <PopoverTrigger>
+        <Button isIconOnly variant="light" size="sm">
+          <Info size={20} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent>
+        <div className="p-4">
+          <h4 className="text-lg font-semibold mb-2">Available Variables</h4>
+          <div className="space-y-2">
+            <p className="text-sm">
+              <code>{"{modID}"}</code> - Mod ID
+            </p>
+            <p className="text-sm">
+              <code>{"{modName}"}</code> - Mod name
+            </p>
+            <p className="text-sm">
+              <code>{"{newReleaseDate}"}</code> - New release date
+            </p>
+            <p className="text-sm">
+              <code>{"{oldPreviousDate}"}</code> - Previous release date
+            </p>
+            <p className="text-sm">
+              <code>{"{everyone}"}</code> - @everyone mention
+            </p>
+            <p className="text-sm">
+              <code>{"{here}"}</code> - @here mention
+            </p>
+            <p className="text-sm">
+              <code>{"{&roleID}"}</code> - Mention a role (e.g., {"{&123456789}"})
+            </p>
+            <p className="text-sm">
+              <code>{"{#channelID}"}</code> - Channel link (e.g., {"{#987654321}"})
+            </p>
+            <p className="text-sm">
+              <code>{"{lastestModFileName}"}</code> - Latest mod file name
+            </p>
+            <p className="text-sm">
+              <code>{"{modAuthorName}"}</code> - Mod author name
+            </p>
+            <p className="text-sm">
+              <code>{"{game_version}"}</code> - Game version
+            </p>
+            <p className="text-sm">
+              <code>{"{old_version}"}</code> - Old version
+            </p>
+            <p className="text-sm">
+              <code>{"{new_version}"}</code> - New version
+            </p>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
   const [template, setTemplate] = useState(null);
@@ -50,7 +108,7 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
           footer_icon_url: "",
           include_timestamp: true,
           embed_fields: JSON.stringify([
-            { name: "Mod Name", value: "{mod_name}", inline: true },
+            { name: "Mod Name", value: "{modName}", inline: true },
             { name: "Game Version", value: "{game_version}", inline: true },
             { name: "Old Version", value: "{old_version}", inline: true },
             { name: "New Version", value: "{new_version}", inline: true },
@@ -137,8 +195,14 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
             <Switch isSelected={template.use_embed} onValueChange={(value) => setTemplate({ ...template, use_embed: value })}>
               Use Embed
             </Switch>
+            <TemplateVariablesHelp />
           </div>
-          {!template.use_embed && <Textarea label="Message Content" placeholder="Enter your message content" value={template.content || ""} onChange={(e) => setTemplate({ ...template, content: e.target.value })} />}
+          {!template.use_embed && (
+            <div className="flex items-start gap-2">
+              <Textarea label="Message Content" placeholder="Enter your message content" value={template.content || ""} onChange={(e) => setTemplate({ ...template, content: e.target.value })} />
+              <TemplateVariablesHelp />
+            </div>
+          )}
         </CardBody>
       </Card>
 
@@ -147,15 +211,24 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
           <Card>
             <CardBody className="space-y-4">
               <h3 className="text-lg font-semibold">Author Settings</h3>
-              <Input label="Author Name" value={template.author_name || ""} onChange={(e) => setTemplate({ ...template, author_name: e.target.value })} placeholder="Enter author name" />
-              <Input label="Author Icon URL" value={template.author_icon_url || ""} onChange={(e) => setTemplate({ ...template, author_icon_url: e.target.value })} placeholder="Enter author icon URL" />
+              <div className="flex items-center gap-2">
+                <Input label="Author Name" value={template.author_name || ""} onChange={(e) => setTemplate({ ...template, author_name: e.target.value })} placeholder="Enter author name" />
+                <TemplateVariablesHelp />
+              </div>
+              <div className="flex items-center gap-2">
+                <Input label="Author Icon URL" value={template.author_icon_url || ""} onChange={(e) => setTemplate({ ...template, author_icon_url: e.target.value })} placeholder="Enter author icon URL" />
+                <TemplateVariablesHelp />
+              </div>
             </CardBody>
           </Card>
 
           <Card>
             <CardBody className="space-y-4">
               <h3 className="text-lg font-semibold">Embed Settings</h3>
-              <Input label="Title" value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} />
+              <div className="flex items-center gap-2">
+                <Input label="Title" value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} />
+                <TemplateVariablesHelp />
+              </div>
               <Input
                 label="Color"
                 type="color"
@@ -173,8 +246,14 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
           <Card>
             <CardBody className="space-y-4">
               <h3 className="text-lg font-semibold">Footer Settings</h3>
-              <Input label="Footer Text" value={template.footer_text || ""} onChange={(e) => setTemplate({ ...template, footer_text: e.target.value })} placeholder="Enter footer text" />
-              <Input label="Footer Icon URL" value={template.footer_icon_url || ""} onChange={(e) => setTemplate({ ...template, footer_icon_url: e.target.value })} placeholder="Enter footer icon URL" />
+              <div className="flex items-center gap-2">
+                <Input label="Footer Text" value={template.footer_text || ""} onChange={(e) => setTemplate({ ...template, footer_text: e.target.value })} placeholder="Enter footer text" />
+                <TemplateVariablesHelp />
+              </div>
+              <div className="flex items-center gap-2">
+                <Input label="Footer Icon URL" value={template.footer_icon_url || ""} onChange={(e) => setTemplate({ ...template, footer_icon_url: e.target.value })} placeholder="Enter footer icon URL" />
+                <TemplateVariablesHelp />
+              </div>
               <Switch isSelected={template.include_timestamp} onValueChange={(value) => setTemplate({ ...template, include_timestamp: value })}>
                 Include Timestamp
               </Switch>
@@ -194,8 +273,14 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
                 {fields.map((field, index) => (
                   <div key={index} className="flex gap-4 items-start border p-4 rounded-lg">
                     <div className="flex-1 space-y-4">
-                      <Input label="Field Name" value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
-                      <Input label="Field Value" value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
+                      <div className="flex items-center gap-2">
+                        <Input label="Field Name" value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
+                        <TemplateVariablesHelp />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input label="Field Value" value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
+                        <TemplateVariablesHelp />
+                      </div>
                       <Switch isSelected={field.inline} onValueChange={(value) => updateField(index, "inline", value)}>
                         Inline
                       </Switch>
