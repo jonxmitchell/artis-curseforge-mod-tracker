@@ -74,10 +74,10 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
             footer_icon_url TEXT,
             include_timestamp BOOLEAN NOT NULL DEFAULT 1,
             embed_fields TEXT NOT NULL DEFAULT '[
-                {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
-                {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
-                {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
-                {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
+                {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
+                {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},
+                {\"name\":\"Last Updated\",\"value\":\"{newReleaseDate}\",\"inline\":false},
+                {\"name\":\"Latest File\",\"value\":\"{lastestModFileName}\",\"inline\":false}
             ]',
             FOREIGN KEY (webhook_id) REFERENCES webhooks (id) ON DELETE CASCADE
         )",
@@ -105,10 +105,10 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
                 'Mod Tracker', NULL,
                 'Powered by Artis Mod Tracker', NULL, 1,
                 '[
-                    {\"name\":\"Mod Name\",\"value\":\"{mod_name}\",\"inline\":true},
-                    {\"name\":\"Game Version\",\"value\":\"{game_version}\",\"inline\":true},
-                    {\"name\":\"Old Version\",\"value\":\"{old_version}\",\"inline\":true},
-                    {\"name\":\"New Version\",\"value\":\"{new_version}\",\"inline\":true}
+                    {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
+                    {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},
+                    {\"name\":\"Last Updated\",\"value\":\"{newReleaseDate}\",\"inline\":false},
+                    {\"name\":\"Latest File\",\"value\":\"{lastestModFileName}\",\"inline\":false}
                 ]'
             )",
             [],

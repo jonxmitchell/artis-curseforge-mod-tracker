@@ -10,9 +10,6 @@ use anyhow::Result;
 struct ModUpdateData {
     mod_id: i64,
     mod_name: String,
-    game_version: String,
-    old_version: String,
-    new_version: String,
     mod_author: String,
     new_release_date: String,
     old_release_date: String,
@@ -32,9 +29,6 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
         ("{here}", "@here".to_string()),
         ("{lastestModFileName}", data.latest_file_name.clone()),
         ("{modAuthorName}", data.mod_author.clone()),
-        ("{game_version}", data.game_version.clone()),
-        ("{old_version}", data.old_version.clone()),
-        ("{new_version}", data.new_version.clone())
     ];
 
     for (key, value) in replacements {
@@ -157,9 +151,6 @@ pub async fn send_update_notification(
     app_handle: AppHandle,
     webhook: Webhook,
     mod_name: String,
-    old_version: String,
-    new_version: String,
-    game_version: String,
     mod_author: String,
     new_release_date: String,
     old_release_date: String,
@@ -177,9 +168,6 @@ pub async fn send_update_notification(
     let update_data = ModUpdateData {
         mod_id,
         mod_name: mod_name.clone(),
-        game_version: game_version.clone(),
-        old_version: old_version.clone(),
-        new_version: new_version.clone(),
         mod_author,
         new_release_date,
         old_release_date,

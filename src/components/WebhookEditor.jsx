@@ -24,11 +24,18 @@ function TemplateVariablesHelp() {
               <code>{"{modName}"}</code> - Mod name
             </p>
             <p className="text-sm">
-              <code>{"{newReleaseDate}"}</code> - New release date
+              <code>{"{newReleaseDate}"}</code> - New update time
             </p>
             <p className="text-sm">
-              <code>{"{oldPreviousDate}"}</code> - Previous release date
+              <code>{"{oldPreviousDate}"}</code> - Previous update time
             </p>
+            <p className="text-sm">
+              <code>{"{lastestModFileName}"}</code> - Latest mod file name
+            </p>
+            <p className="text-sm">
+              <code>{"{modAuthorName}"}</code> - Mod author name
+            </p>
+            <h5 className="text-md font-semibold mt-4 mb-2">Discord Mentions</h5>
             <p className="text-sm">
               <code>{"{everyone}"}</code> - @everyone mention
             </p>
@@ -40,21 +47,6 @@ function TemplateVariablesHelp() {
             </p>
             <p className="text-sm">
               <code>{"{#channelID}"}</code> - Channel link (e.g., {"{#987654321}"})
-            </p>
-            <p className="text-sm">
-              <code>{"{lastestModFileName}"}</code> - Latest mod file name
-            </p>
-            <p className="text-sm">
-              <code>{"{modAuthorName}"}</code> - Mod author name
-            </p>
-            <p className="text-sm">
-              <code>{"{game_version}"}</code> - Game version
-            </p>
-            <p className="text-sm">
-              <code>{"{old_version}"}</code> - Old version
-            </p>
-            <p className="text-sm">
-              <code>{"{new_version}"}</code> - New version
             </p>
           </div>
         </div>
@@ -109,9 +101,9 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
           include_timestamp: true,
           embed_fields: JSON.stringify([
             { name: "Mod Name", value: "{modName}", inline: true },
-            { name: "Game Version", value: "{game_version}", inline: true },
-            { name: "Old Version", value: "{old_version}", inline: true },
-            { name: "New Version", value: "{new_version}", inline: true },
+            { name: "Author", value: "{modAuthorName}", inline: true },
+            { name: "Last Updated", value: "{newReleaseDate}", inline: false },
+            { name: "Latest File", value: "{lastestModFileName}", inline: false },
           ]),
         };
         setTemplate(defaultTemplate);
