@@ -89,9 +89,10 @@ export default function UpdateCountdown() {
         updateCountdown();
       } else {
         // Calculate remaining time
-        const minutes = Math.floor(diff / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        setTimeLeft({ minutes, seconds });
+        const hours = Math.floor(diff / 3600000); // Convert to hours
+        const minutes = Math.floor((diff % 3600000) / 60000); // Remaining minutes
+        const seconds = Math.floor((diff % 60000) / 1000); // Remaining seconds
+        setTimeLeft({ hours, minutes, seconds });
       }
     } catch (error) {
       console.error("Failed to update countdown:", error);
@@ -106,7 +107,7 @@ export default function UpdateCountdown() {
             <Clock size={20} className="text-primary" />
             <div>
               <p className="text-sm font-medium">Next update check in:</p>
-              <p className="text-2xl font-bold text-primary">--:--</p>
+              <p className="text-2xl font-bold text-primary">--:--:--</p>
             </div>
           </div>
         </CardBody>
@@ -124,7 +125,7 @@ export default function UpdateCountdown() {
           <div>
             <p className="text-sm font-medium">Next update check in:</p>
             <p className="text-2xl font-bold text-primary">
-              {String(timeLeft.minutes).padStart(2, "0")}:{String(timeLeft.seconds).padStart(2, "0")}
+              {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:{String(timeLeft.seconds).padStart(2, "0")}
             </p>
           </div>
         </div>
