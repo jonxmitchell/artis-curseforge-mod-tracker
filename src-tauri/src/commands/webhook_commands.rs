@@ -5,6 +5,7 @@ use crate::database::{get_database_path, ensure_database_exists};
 use reqwest::Client;
 use serde_json::json;
 use anyhow::Result;
+use chrono::{DateTime, Utc, Datelike};
 
 #[derive(Debug)]
 struct ModUpdateData {
@@ -14,6 +15,44 @@ struct ModUpdateData {
     new_release_date: String,
     old_release_date: String,
     latest_file_name: String,
+}
+
+fn get_ordinal_suffix(day: u32) -> &'static str {
+    if (11..=13).contains(&(day % 100)) {
+        return "th";
+    }
+    match day % 10 {
+        1 => "st",
+        2 => "nd",
+        3 => "rd",
+        _ => "th",
+    }
+}
+
+fn format_date(date_str: &str) -> String {
+    if let Ok(date) = DateTime::parse_from_rfc3339(date_str) {
+        // Convert to UTC
+        let utc_date: DateTime<Utc> = date.into();
+        
+        // Get the day and its ordinal suffix
+        let day = utc_date.day();
+        let suffix = get_ordinal_suffix(day);
+        
+        // Format the date with the ordinal suffix
+        // Example output: "1st November 2024 at 14:42 UTC"
+        format!(
+            "{}{} {} {} at {:02}:{:02} UTC",
+            day,
+            suffix,
+            utc_date.format("%B"),
+            utc_date.format("%Y"),
+            utc_date.format("%H"),
+            utc_date.format("%M")
+        )
+    } else {
+        // Return original string if parsing fails
+        date_str.to_string()
+    }
 }
 
 fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
@@ -167,8 +206,8 @@ pub async fn send_update_notification(
         mod_id,
         mod_name: mod_name.clone(),
         mod_author,
-        new_release_date,
-        old_release_date,
+        new_release_date: format_date(&new_release_date),
+        old_release_date: format_date(&old_release_date),
         latest_file_name,
     };
 
