@@ -9,14 +9,21 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
   const [isTesting, setIsTesting] = useState(false);
   const [isEnabled, setIsEnabled] = useState(webhook.enabled);
   const [useCustomTemplate, setUseCustomTemplate] = useState(webhook.use_custom_template);
+  const [testError, setTestError] = useState(null);
 
   const handleTest = async () => {
     setIsTesting(true);
+    setTestError(null);
     try {
       const success = await invoke("test_webhook", { webhook });
-      // You could add a toast notification here to show success/failure
+      if (!success) {
+        throw new Error("Failed to send test message");
+      }
+      // You could add a toast notification here
+      console.log("Test message sent successfully");
     } catch (error) {
       console.error("Failed to test webhook:", error);
+      setTestError(error.toString());
     } finally {
       setIsTesting(false);
     }
@@ -72,6 +79,7 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
             )}
           </div>
           <p className="text-sm text-default-500 truncate max-w-lg">{webhook.url}</p>
+          {testError && <p className="text-sm text-danger mt-1">{testError}</p>}
           <div className="flex items-center gap-2 mt-2">
             <MessageSquare size={16} className="text-default-400" />
             <span className="text-sm text-default-400">Using {useCustomTemplate ? "custom" : "default"} template</span>
@@ -88,7 +96,9 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
               wrapper: "group-data-[selected=true]:bg-primary",
             }}
           />
-          <Button isIconOnly variant="light" onClick={handleTest} isLoading={isTesting} startContent={!isTesting && <TestTubes size={20} />} />
+          <Tooltip content="Test Webhook">
+            <Button isIconOnly variant="light" onClick={handleTest} isLoading={isTesting} startContent={!isTesting && <TestTubes size={20} />} />
+          </Tooltip>
           <Popover placement="bottom-end">
             <PopoverTrigger>
               <Button isIconOnly variant="light" startContent={<Settings size={20} />} />

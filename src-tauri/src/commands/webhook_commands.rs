@@ -107,17 +107,12 @@ pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), Stri
 pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
     let client = Client::new();
     
-    let test_payload = json!({
-        "username": webhook.username.unwrap_or_else(|| "Mod Tracker".to_string()),
-        "avatar_url": webhook.avatar_url,
+    // Create base payload
+    let mut payload = json!({
         "embeds": [{
             "title": "🧪 Test Message",
             "description": "This is a test message from Arti's CurseForge Mod Tracker!",
             "color": 5814783,
-            "author": {
-                "name": "Mod Tracker Test",
-                "icon_url": webhook.avatar_url
-            },
             "footer": {
                 "text": "Test completed successfully"
             },
@@ -125,12 +120,34 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
         }]
     });
 
+    // Add username if provided and not empty
+    match &webhook.username {
+        Some(username) if !username.trim().is_empty() => {
+            payload["username"] = json!(username);
+        }
+        _ => {
+            payload["username"] = json!("Mod Tracker");
+        }
+    }
+
+    // Add avatar_url if provided and not empty
+    if let Some(avatar_url) = &webhook.avatar_url {
+        if !avatar_url.trim().is_empty() {
+            payload["avatar_url"] = json!(avatar_url);
+        }
+    }
+
     let response = client
         .post(&webhook.url)
-        .json(&test_payload)
+        .json(&payload)
         .send()
         .await
         .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(format!("Discord API error: {}", error_text));
+    }
 
     Ok(response.status().is_success())
 }
