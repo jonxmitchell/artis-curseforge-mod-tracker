@@ -6,6 +6,7 @@ mod commands;
 use database::{get_database_path, ensure_database_exists, initialize_database};
 use commands::mod_commands::*;
 use commands::webhook_commands::*;
+use commands::webhook_template_commands::*;
 use commands::settings_commands::*;
 use rusqlite::Connection;
 
@@ -34,6 +35,7 @@ fn main() {
             delete_webhook,
             test_webhook,
             send_update_notification,
+            // Webhook template commands
             get_webhook_template,
             update_webhook_template,
             delete_custom_template,

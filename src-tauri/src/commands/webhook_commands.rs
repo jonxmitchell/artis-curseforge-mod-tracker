@@ -1,10 +1,10 @@
-use crate::database::{webhooks, Webhook, WebhookTemplate};
+use crate::database::{webhooks, Webhook};
+use crate::database::webhook_templates::get_webhook_template;
 use rusqlite::Connection;
 use tauri::AppHandle;
 use crate::database::{get_database_path, ensure_database_exists};
 use reqwest::Client;
 use serde_json::json;
-use anyhow::Result;
 use chrono::{DateTime, Utc, Datelike};
 
 #[derive(Debug)]
@@ -31,15 +31,10 @@ fn get_ordinal_suffix(day: u32) -> &'static str {
 
 fn format_date(date_str: &str) -> String {
     if let Ok(date) = DateTime::parse_from_rfc3339(date_str) {
-        // Convert to UTC
         let utc_date: DateTime<Utc> = date.into();
-        
-        // Get the day and its ordinal suffix
         let day = utc_date.day();
         let suffix = get_ordinal_suffix(day);
         
-        // Format the date with the ordinal suffix
-        // Example output: "1st November 2024 at 14:42 UTC"
         format!(
             "{}{} {} {} at {:02}:{:02} UTC",
             day,
@@ -50,7 +45,6 @@ fn format_date(date_str: &str) -> String {
             utc_date.format("%M")
         )
     } else {
-        // Return original string if parsing fails
         date_str.to_string()
     }
 }
@@ -140,7 +134,6 @@ pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), Stri
 pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
     let client = Client::new();
     
-    // Build base payload
     let mut payload = json!({
         "embeds": [{
             "title": "🧪 Test Message",
@@ -153,12 +146,10 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
         }]
     });
 
-    // Set guaranteed valid username
     payload["username"] = json!(webhook.username
         .and_then(|u| if u.trim().is_empty() { None } else { Some(u) })
         .unwrap_or_else(|| "Mod Tracker".to_string()));
 
-    // Add avatar_url if provided and not empty
     if let Some(avatar_url) = &webhook.avatar_url {
         if !avatar_url.trim().is_empty() {
             payload["avatar_url"] = json!(avatar_url);
@@ -196,10 +187,9 @@ pub async fn send_update_notification(
 ) -> Result<bool, String> {
     let client = Client::new();
     
-    // Get the webhook template
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    let template = webhooks::get_webhook_template(&conn, webhook.id.unwrap_or(-1))
+    let template = get_webhook_template(&conn, webhook.id.unwrap_or(-1))
         .map_err(|e| e.to_string())?;
 
     let update_data = ModUpdateData {
@@ -228,7 +218,6 @@ pub async fn send_update_notification(
             .collect::<Vec<_>>()
     });
 
-    // Add author if specified and not empty
     if let Some(author_name) = &template.author_name {
         if !author_name.trim().is_empty() {
             let mut author = json!({
@@ -243,7 +232,6 @@ pub async fn send_update_notification(
         }
     }
 
-    // Add footer if any footer content exists
     if template.footer_text.as_ref().map_or(false, |t| !t.trim().is_empty()) 
         || template.footer_icon_url.as_ref().map_or(false, |u| !u.trim().is_empty()) 
         || template.include_timestamp 
@@ -262,19 +250,16 @@ pub async fn send_update_notification(
         embed["footer"] = footer;
     }
 
-    // Add timestamp if enabled
     if template.include_timestamp {
         embed["timestamp"] = json!(chrono::Utc::now().to_rfc3339());
     }
 
-    // Build the base payload with a guaranteed valid username
     let mut payload = json!({
         "username": webhook.username
             .and_then(|u| if u.trim().is_empty() { None } else { Some(u) })
             .unwrap_or_else(|| "Mod Tracker".to_string()),
     });
 
-    // Only add avatar_url if it exists and is not empty
     if let Some(avatar_url) = &webhook.avatar_url {
         if !avatar_url.trim().is_empty() {
             payload["avatar_url"] = json!(avatar_url);
@@ -305,25 +290,4 @@ pub async fn send_update_notification(
     }
 
     Ok(response.status().is_success())
-}
-
-#[tauri::command]
-pub fn get_webhook_template(app_handle: AppHandle, webhook_id: i64) -> Result<WebhookTemplate, String> {
-    let db_path = get_database_path(&app_handle);
-    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    webhooks::get_webhook_template(&conn, webhook_id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn update_webhook_template(app_handle: AppHandle, template: WebhookTemplate) -> Result<(), String> {
-    let db_path = get_database_path(&app_handle);
-    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    webhooks::update_webhook_template(&mut conn, &template).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn delete_custom_template(app_handle: AppHandle, webhook_id: i64) -> Result<(), String> {
-    let db_path = get_database_path(&app_handle);
-    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    webhooks::delete_custom_template(&mut conn, webhook_id).map_err(|e| e.to_string())
 }
