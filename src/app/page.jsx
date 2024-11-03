@@ -1,25 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardBody, CardHeader, Tab, Tabs, Button, Divider } from "@nextui-org/react";
-import { Settings, AlertTriangle, Clock, Package2, Bell, BarChart3 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Card, CardHeader, CardBody, Button, Chip } from "@nextui-org/react";
+import UpdateCountdown from "@/components/UpdateCountdown";
+import { ArrowUpRight, Package2, Webhook, Clock, Bell, Settings as SettingsIcon, Gamepad2, AlertTriangle, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
-import ModCard from "@/components/ModCard";
+import Settings from "@/components/Settings";
+import { useRouter } from "next/navigation";
 import AddModModal from "@/components/AddModModal";
-import SettingsModal from "@/components/Settings";
-import WebhookAssignModal from "@/components/WebhookAssignModal";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [mods, setMods] = useState([]);
   const [webhooks, setWebhooks] = useState([]);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [selectedModId, setSelectedModId] = useState(null);
-  const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updateInterval, setUpdateInterval] = useState(30);
   const [lastChecked, setLastChecked] = useState(null);
+  const [showQuickStart, setShowQuickStart] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -29,10 +29,11 @@ export default function DashboardPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const [modsData, webhooksData, interval] = await Promise.all([invoke("get_mods"), invoke("get_webhooks"), invoke("get_update_interval")]);
+      const [modsData, webhooksData, interval, quickStartVisible] = await Promise.all([invoke("get_mods"), invoke("get_webhooks"), invoke("get_update_interval"), invoke("get_show_quick_start")]);
       setMods(modsData || []);
       setWebhooks(webhooksData || []);
       setUpdateInterval(interval);
+      setShowQuickStart(quickStartVisible);
       setLastChecked(new Date());
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -47,26 +48,6 @@ export default function DashboardPage() {
     setMods((prevMods) => [...prevMods, newMod]);
   };
 
-  const handleDeleteMod = async (modId) => {
-    await invoke("delete_mod", { modId });
-    setMods((prevMods) => prevMods.filter((mod) => (mod.mod_info ? mod.mod_info.id : mod.id) !== modId));
-  };
-
-  const handleCheckUpdate = async (mod) => {
-    const modInfo = mod.mod_info || mod;
-    const result = await invoke("check_mod_update", {
-      modId: modInfo.id,
-      curseforgeId: modInfo.curseforge_id,
-      currentLastUpdated: modInfo.last_updated,
-      apiKey: await invoke("get_api_key"),
-    });
-
-    if (result) {
-      const updatedMods = await invoke("get_mods");
-      setMods(updatedMods);
-    }
-  };
-
   const getModsByGame = () => {
     const gameMap = new Map();
     mods.forEach((mod) => {
@@ -79,147 +60,202 @@ export default function DashboardPage() {
     return gameMap;
   };
 
-  const renderStats = () => {
-    const totalMods = mods.length;
-    const totalWebhooks = webhooks.length;
-    const gameMap = getModsByGame();
-    const totalGames = gameMap.size;
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card>
-          <CardBody className="flex flex-row items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Package2 className="text-primary" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-default-500">Total Mods</p>
-              <p className="text-2xl font-bold">{totalMods}</p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="flex flex-row items-center gap-4">
-            <div className="p-3 rounded-xl bg-secondary/10">
-              <Bell className="text-secondary" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-default-500">Active Webhooks</p>
-              <p className="text-2xl font-bold">{totalWebhooks}</p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="flex flex-row items-center gap-4">
-            <div className="p-3 rounded-xl bg-success/10">
-              <BarChart3 className="text-success" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-default-500">Games Tracked</p>
-              <p className="text-2xl font-bold">{totalGames}</p>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-    );
+  const handleHideQuickStart = async () => {
+    try {
+      await invoke("set_show_quick_start", { show: false });
+      setShowQuickStart(false);
+    } catch (error) {
+      console.error("Failed to update quick start preference:", error);
+    }
   };
 
-  const renderGameSection = (gameName, gameMods) => (
-    <div key={gameName} className="mb-6">
-      <h2 className="text-xl font-semibold mb-4">{gameName}</h2>
-      <div className="space-y-4">
-        {gameMods.map((mod) => (
-          <ModCard
-            key={mod.mod_info ? mod.mod_info.id : mod.id}
-            mod={mod.mod_info || mod}
-            onDelete={handleDeleteMod}
-            onUpdate={() => handleCheckUpdate(mod)}
-            onManageWebhooks={(modId) => {
-              setSelectedModId(modId);
-              setIsWebhookModalOpen(true);
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
+  if (isLoading) {
+    return <div className="text-center p-8">Loading dashboard...</div>;
+  }
 
-  const renderContent = () => {
-    if (isLoading) {
-      return <div className="text-center p-8">Loading dashboard...</div>;
-    }
-
-    if (error) {
-      return (
-        <div className="text-center p-8">
-          <AlertTriangle className="mx-auto h-12 w-12 text-danger mb-4" />
-          <p className="text-danger">{error}</p>
-          <Button color="primary" variant="light" className="mt-4" onPress={loadData}>
-            Retry
-          </Button>
-        </div>
-      );
-    }
-
-    const gameMap = getModsByGame();
-
+  if (error) {
     return (
-      <>
-        {renderStats()}
-
-        <Card className="mb-6">
-          <CardBody className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Clock size={20} className="text-default-500" />
-              <div>
-                <p className="text-sm text-default-500">Update Interval</p>
-                <p>Checking every {updateInterval} minutes</p>
-              </div>
-            </div>
-            {lastChecked && (
-              <div className="text-right">
-                <p className="text-sm text-default-500">Last Checked</p>
-                <p>{lastChecked.toLocaleString()}</p>
-              </div>
-            )}
-          </CardBody>
-        </Card>
-
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Tracked Mods</h1>
-          <div className="flex gap-2">
-            <Button color="primary" onPress={() => setIsAddModalOpen(true)}>
-              Add Mod
-            </Button>
-            <Button isIconOnly variant="flat" onPress={() => setIsSettingsOpen(true)}>
-              <Settings size={20} />
-            </Button>
-          </div>
-        </div>
-
-        {mods.length === 0 ? (
-          <Card>
-            <CardBody className="py-8 text-center">
-              <Package2 className="mx-auto h-12 w-12 text-default-500 mb-4" />
-              <p className="text-default-500">No mods are being tracked yet.</p>
-              <Button color="primary" className="mt-4" onPress={() => setIsAddModalOpen(true)}>
-                Add Your First Mod
-              </Button>
-            </CardBody>
-          </Card>
-        ) : (
-          Array.from(gameMap.entries()).map(([game, gameMods]) => renderGameSection(game, gameMods))
-        )}
-      </>
+      <div className="text-center p-8">
+        <AlertTriangle className="mx-auto h-12 w-12 text-danger mb-4" />
+        <p className="text-danger">{error}</p>
+        <Button color="primary" variant="light" className="mt-4" onPress={loadData}>
+          Retry
+        </Button>
+      </div>
     );
+  }
+
+  const gameMap = getModsByGame();
+  const stats = {
+    totalMods: mods.length,
+    totalWebhooks: webhooks.length,
+    totalGames: gameMap.size,
   };
 
   return (
     <div className="container mx-auto max-w-5xl">
-      {renderContent()}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Button color="primary" variant="ghost" startContent={<SettingsIcon size={20} />} onPress={() => setIsSettingsOpen(true)}>
+          Settings
+        </Button>
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardBody className="py-3">
+            <div className="flex items-center gap-2">
+              <Package2 size={20} className="text-primary" />
+              <div>
+                <p className="text-sm font-medium">Tracked Mods</p>
+                <p className="text-2xl font-bold">{stats.totalMods}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody className="py-3">
+            <div className="flex items-center gap-2">
+              <Gamepad2 size={20} className="text-primary" />
+              <div>
+                <p className="text-sm font-medium">Games Tracked</p>
+                <p className="text-2xl font-bold">{stats.totalGames}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody className="py-3">
+            <div className="flex items-center gap-2">
+              <Webhook size={20} className="text-primary" />
+              <div>
+                <p className="text-sm font-medium">Active Webhooks</p>
+                <p className="text-2xl font-bold">{stats.totalWebhooks}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <UpdateCountdown interval={updateInterval} />
+      </div>
+
+      <Card className="mb-6">
+        <CardBody className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Clock size={20} className="text-default-500" />
+            <div>
+              <p className="text-sm text-default-500">Update Interval</p>
+              <p>Checking every {updateInterval} minutes</p>
+            </div>
+          </div>
+          {lastChecked && (
+            <div className="text-right">
+              <p className="text-sm text-default-500">Last Checked</p>
+              <p>{lastChecked.toLocaleString()}</p>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader className="flex gap-2">
+              <Package2 size={24} className="text-primary" />
+              <div className="flex-1">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-md font-bold">Tracked Mods</p>
+                    <p className="text-small text-default-500">By game</p>
+                  </div>
+                  <Button size="sm" color="primary" variant="ghost" onPress={() => router.push("/mods")}>
+                    View All
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardBody>
+              {gameMap.size === 0 ? (
+                <div className="text-center text-default-500">
+                  <p>No mods being tracked yet</p>
+                  <Button color="primary" variant="flat" size="sm" className="mt-2" onPress={() => setIsAddModalOpen(true)}>
+                    Add Your First Mod
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Array.from(gameMap.entries()).map(([game, gameMods]) => (
+                    <div key={game} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Gamepad2 size={16} className="text-default-500" />
+                        <h3 className="font-medium">{game}</h3>
+                      </div>
+                      <div className="ml-6 flex flex-wrap gap-2">
+                        {gameMods.map((mod) => (
+                          <Chip
+                            key={mod.mod_info ? mod.mod_info.id : mod.id}
+                            variant="flat"
+                            size="sm"
+                            classNames={{
+                              base: "cursor-pointer transition-all",
+                              content: "text-default-600",
+                            }}
+                            onClick={() => router.push("/mods")}
+                          >
+                            {mod.mod_info ? mod.mod_info.name : mod.name}
+                          </Chip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          {showQuickStart && (
+            <Card>
+              <CardHeader className="flex gap-2">
+                <div className="flex-1 flex items-center gap-2">
+                  <ArrowUpRight size={24} className="text-primary" />
+                  <div>
+                    <p className="text-md font-bold">Quick Start</p>
+                    <p className="text-small text-default-500">Track your first mod</p>
+                  </div>
+                </div>
+                <Button isIconOnly size="sm" variant="light" onPress={handleHideQuickStart} className="text-default-400 hover:text-default-600">
+                  <X size={20} />
+                </Button>
+              </CardHeader>
+              <CardBody>
+                <ol className="list-decimal list-inside space-y-2">
+                  <li>Add your CurseForge API key in Settings</li>
+                  <li>Go to the Mods page and click &quot;Add Mod&quot;</li>
+                  <li>Enter the CurseForge mod ID</li>
+                  <li>Set up Discord webhooks to receive notifications</li>
+                </ol>
+              </CardBody>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="flex gap-2">
+              <Clock size={24} className="text-primary" />
+              <div>
+                <p className="text-md font-bold">Recent Activity</p>
+                <p className="text-small text-default-500">Latest mod updates</p>
+              </div>
+            </CardHeader>
+            <CardBody>{stats.totalMods === 0 ? <p className="text-center text-default-500">No mods being tracked yet</p> : <p className="text-center text-default-500">No recent updates</p>}</CardBody>
+          </Card>
+        </div>
+      </div>
+
+      <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <AddModModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -229,10 +265,6 @@ export default function DashboardPage() {
           setIsSettingsOpen(true);
         }}
       />
-
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-
-      <WebhookAssignModal isOpen={isWebhookModalOpen} onClose={() => setIsWebhookModalOpen(false)} modId={selectedModId} />
     </div>
   );
 }

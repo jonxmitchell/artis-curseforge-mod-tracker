@@ -42,6 +42,8 @@ fn main() {
             set_api_key,
             get_update_interval,
             set_update_interval,
+            get_show_quick_start,
+            set_show_quick_start,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
