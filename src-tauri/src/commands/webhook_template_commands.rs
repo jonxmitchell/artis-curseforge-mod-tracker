@@ -1,12 +1,14 @@
-use crate::database::webhook_templates::{
-    WebhookTemplate,
-    get_webhook_template as db_get_webhook_template,
-    update_webhook_template as db_update_webhook_template,
-    delete_custom_template as db_delete_custom_template
+use crate::database::{
+    webhook_templates::{
+        WebhookTemplate,
+        get_webhook_template as db_get_webhook_template,
+        update_webhook_template as db_update_webhook_template,
+        delete_custom_template as db_delete_custom_template
+    },
+    get_database_path
 };
 use rusqlite::Connection;
 use tauri::AppHandle;
-use crate::database::get_database_path;
 use serde_json::Value;
 
 /// Gets the template for a webhook. If webhook_id is -1, returns the default template.

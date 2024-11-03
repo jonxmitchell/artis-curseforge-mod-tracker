@@ -3,6 +3,7 @@ use std::path::Path;
 use tauri::AppHandle;
 use std::path::PathBuf;
 use crate::database::settings::initialize_settings_table;
+use crate::database::activities::initialize_activities_table;
 
 pub fn get_database_path(handle: &AppHandle) -> PathBuf {
     handle.path_resolver()
@@ -117,6 +118,9 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
 
     // Initialize settings table
     initialize_settings_table(connection)?;
+
+    // Initialize activities table
+    initialize_activities_table(connection)?;
 
     Ok(())
 }

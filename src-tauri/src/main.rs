@@ -8,6 +8,7 @@ use commands::mod_commands::*;
 use commands::webhook_commands::*;
 use commands::webhook_template_commands::*;
 use commands::settings_commands::*;
+use commands::activity_commands::*;
 use rusqlite::Connection;
 
 fn main() {
@@ -46,6 +47,10 @@ fn main() {
             set_update_interval,
             get_show_quick_start,
             set_show_quick_start,
+            // Activity commands
+            add_activity_entry,
+            get_activities,
+            clear_activity_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

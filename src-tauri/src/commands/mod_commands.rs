@@ -1,10 +1,15 @@
-use crate::database::{mods, Mod, ModWithWebhooks};
+use crate::database::{
+    mods, Mod, ModWithWebhooks,
+    activities::{Activity, add_activity},
+    get_database_path, ensure_database_exists,
+};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
-use crate::database::{get_database_path, ensure_database_exists};
-use anyhow::Result;
 use reqwest::header::HeaderMap;
+use anyhow::Result;
+use chrono::Utc;
+use serde_json::json;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CurseForgeResponse {
@@ -144,14 +149,30 @@ pub async fn add_mod(
     let mod_data = Mod {
         id: None,
         curseforge_id,
-        name: curse_data.data.name,
-        game_name,
-        last_updated: curse_data.data.date_modified,
+        name: curse_data.data.name.clone(),
+        game_name: game_name.clone(),
+        last_updated: curse_data.data.date_modified.clone(),
     };
 
     ensure_database_exists(&db_path).map_err(|e| e.to_string())?;
     
     let mod_id = mods::insert_mod(&conn, &mod_data).map_err(|e| e.to_string())?;
+
+    // Log activity for mod addition
+    let activity = Activity {
+        id: None,
+        activity_type: "mod_added".to_string(),
+        mod_id: Some(mod_id),
+        mod_name: Some(curse_data.data.name.clone()),
+        description: format!("Added mod \"{}\"", curse_data.data.name),
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "game": game_name,
+            "curseforge_id": curseforge_id,
+            "initial_version_date": curse_data.data.date_modified,
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
 
     let mut mod_with_webhooks = ModWithWebhooks {
         mod_info: mod_data,
@@ -208,10 +229,26 @@ pub async fn check_mod_update(
         let latest_file = curse_data.data.latest_files.first()
             .ok_or_else(|| "No files found for mod".to_string())?;
 
-        // Extract the author info
         let author_name = curse_data.data.authors.first()
             .map(|author| author.name.clone())
             .unwrap_or_else(|| "Unknown Author".to_string());
+
+        // Log activity for mod update
+        let activity = Activity {
+            id: None,
+            activity_type: "mod_updated".to_string(),
+            mod_id: Some(mod_id),
+            mod_name: Some(curse_data.data.name.clone()),
+            description: format!("\"{}\" has been updated", curse_data.data.name),
+            timestamp: Utc::now(),
+            metadata: Some(json!({
+                "old_version_date": current_last_updated,
+                "new_version_date": new_date,
+                "author": author_name.clone(),
+                "latest_file": latest_file.file_name.clone(),
+            }).to_string()),
+        };
+        add_activity(&conn, &activity).map_err(|e| e.to_string())?;
 
         Ok(Some(ModUpdateInfo {
             mod_id,
@@ -238,21 +275,110 @@ pub fn get_mods(app_handle: AppHandle) -> Result<Vec<ModWithWebhooks>, String> {
 pub fn delete_mod(app_handle: AppHandle, mod_id: i64) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    mods::delete_mod(&conn, mod_id).map_err(|e| e.to_string())
+    
+    // Get mod info before deletion for activity log
+    let mod_info: (String, String) = conn.query_row(
+        "SELECT name, game_name FROM mods WHERE id = ?1",
+        [mod_id],
+        |row| Ok((row.get(0)?, row.get(1)?))
+    ).map_err(|e| e.to_string())?;
+
+    // Delete the mod
+    mods::delete_mod(&conn, mod_id).map_err(|e| e.to_string())?;
+
+    // Log activity for mod deletion
+    let activity = Activity {
+        id: None,
+        activity_type: "mod_removed".to_string(),
+        mod_id: Some(mod_id),
+        mod_name: Some(mod_info.0.clone()),
+        description: format!("Removed mod \"{}\"", mod_info.0),
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "game": mod_info.1
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command]
 pub fn assign_webhook(app_handle: AppHandle, mod_id: i64, webhook_id: i64) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    mods::assign_webhook_to_mod(&conn, mod_id, webhook_id).map_err(|e| e.to_string())
+
+    // Get mod and webhook info for activity log
+    let mod_name: String = conn.query_row(
+        "SELECT name FROM mods WHERE id = ?1",
+        [mod_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let webhook_name: String = conn.query_row(
+        "SELECT name FROM webhooks WHERE id = ?1",
+        [webhook_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    // Assign webhook
+    mods::assign_webhook_to_mod(&conn, mod_id, webhook_id).map_err(|e| e.to_string())?;
+
+    // Log activity for webhook assignment
+    let activity = Activity {
+        id: None,
+        activity_type: "webhook_assigned".to_string(),
+        mod_id: Some(mod_id),
+        mod_name: Some(mod_name.clone()),
+        description: format!("Assigned webhook \"{}\" to mod \"{}\"", webhook_name, mod_name),
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "webhook_id": webhook_id,
+            "webhook_name": webhook_name
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command]
 pub fn remove_webhook_assignment(app_handle: AppHandle, mod_id: i64, webhook_id: i64) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    mods::remove_webhook_from_mod(&conn, mod_id, webhook_id).map_err(|e| e.to_string())
+
+    // Get mod and webhook info for activity log
+    let mod_name: String = conn.query_row(
+        "SELECT name FROM mods WHERE id = ?1",
+        [mod_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let webhook_name: String = conn.query_row(
+        "SELECT name FROM webhooks WHERE id = ?1",
+        [webhook_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    // Remove webhook assignment
+    mods::remove_webhook_from_mod(&conn, mod_id, webhook_id).map_err(|e| e.to_string())?;
+
+    // Log activity for webhook removal
+    let activity = Activity {
+        id: None,
+        activity_type: "webhook_unassigned".to_string(),
+        mod_id: Some(mod_id),
+        mod_name: Some(mod_name.clone()),
+        description: format!("Removed webhook \"{}\" from mod \"{}\"", webhook_name, mod_name),
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "webhook_id": webhook_id,
+            "webhook_name": webhook_name
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command]

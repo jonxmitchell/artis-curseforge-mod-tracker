@@ -10,6 +10,7 @@ import Settings from "@/components/Settings";
 import { useRouter } from "next/navigation";
 import AddModModal from "@/components/AddModModal";
 import { useModUpdateChecker } from "@/hooks/useModUpdateChecker";
+import RecentActivity from "@/components/RecentActivity";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -279,16 +280,7 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader className="flex gap-2">
-              <Clock size={24} className="text-primary" />
-              <div>
-                <p className="text-md font-bold">Recent Activity</p>
-                <p className="text-small text-default-500">Latest mod updates</p>
-              </div>
-            </CardHeader>
-            <CardBody>{stats.totalMods === 0 ? <p className="text-center text-default-500">No mods being tracked yet</p> : <p className="text-center text-default-500">No recent updates</p>}</CardBody>
-          </Card>
+          <RecentActivity />
         </div>
       </div>
 

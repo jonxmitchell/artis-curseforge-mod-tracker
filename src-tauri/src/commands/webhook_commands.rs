@@ -1,11 +1,14 @@
-use crate::database::{webhooks, Webhook};
-use crate::database::webhook_templates::get_webhook_template;
-use rusqlite::Connection;
-use tauri::AppHandle;
-use crate::database::{get_database_path, ensure_database_exists};
+use crate::database::{
+    webhooks, Webhook,
+    webhook_templates::get_webhook_template,
+    activities::{Activity, add_activity},
+    get_database_path, ensure_database_exists,
+};
 use reqwest::Client;
 use serde_json::json;
 use chrono::{DateTime, Utc, Datelike};
+use rusqlite::Connection;
+use tauri::AppHandle;
 
 #[derive(Debug)]
 struct ModUpdateData {
@@ -100,8 +103,23 @@ pub fn add_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<Webhook, S
     let db_path = get_database_path(&app_handle);
     ensure_database_exists(&db_path).map_err(|e| e.to_string())?;
     
-    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    let webhook_id = webhooks::insert_webhook(&mut conn, &webhook).map_err(|e| e.to_string())?;
+    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;  // Changed to mut
+    let webhook_id = webhooks::insert_webhook(&mut conn, &webhook).map_err(|e| e.to_string())?;  // Added mut
+
+    // Log activity for webhook addition
+    let activity = Activity {
+        id: None,
+        activity_type: "webhook_added".to_string(),
+        mod_id: None,
+        mod_name: None,
+        description: format!("Added webhook \"{}\"", webhook.name),
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "webhook_name": webhook.name,
+            "webhook_id": webhook_id,
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
 
     let mut new_webhook = webhook;
     new_webhook.id = Some(webhook_id);
@@ -120,14 +138,57 @@ pub fn get_webhooks(app_handle: AppHandle) -> Result<Vec<Webhook>, String> {
 pub fn update_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    webhooks::update_webhook(&mut conn, &webhook).map_err(|e| e.to_string())
+    webhooks::update_webhook(&mut conn, &webhook).map_err(|e| e.to_string())?;
+
+    // Log activity for webhook update
+    let activity = Activity {
+        id: None,
+        activity_type: "webhook_updated".to_string(),
+        mod_id: None,
+        mod_name: None,
+        description: format!("Updated webhook \"{}\"", webhook.name),
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "webhook_name": webhook.name,
+            "webhook_id": webhook.id,
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command]
 pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    webhooks::delete_webhook(&mut conn, webhook_id).map_err(|e| e.to_string())
+
+    // Get webhook info before deletion
+    let webhook_name: String = conn.query_row(
+        "SELECT name FROM webhooks WHERE id = ?1",
+        [webhook_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    // Delete the webhook
+    webhooks::delete_webhook(&mut conn, webhook_id).map_err(|e| e.to_string())?;
+
+    // Log activity for webhook deletion
+    let activity = Activity {
+        id: None,
+        activity_type: "webhook_removed".to_string(),
+        mod_id: None,
+        mod_name: None,
+        description: format!("Removed webhook \"{}\"", webhook_name),
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "webhook_name": webhook_name,
+            "webhook_id": webhook_id,
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -283,11 +344,39 @@ pub async fn send_update_notification(
         .await
         .map_err(|e| e.to_string())?;
 
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-        println!("Discord API error: {}", error_text);
-        return Err(format!("Discord API error: {}", error_text));
+    let result = response.status().is_success();
+    let error_text = if !result {
+        Some(response.text().await.unwrap_or_else(|_| "Unknown error".to_string()))
+    } else {
+        None
+    };
+
+    // Log activity for notification result
+    let activity = Activity {
+        id: None,
+        activity_type: if result { "notification_sent".to_string() } else { "webhook_error".to_string() },
+        mod_id: Some(mod_id),
+        mod_name: Some(mod_name.clone()),
+        description: if result {
+            format!("Sent update notification for \"{}\" to webhook \"{}\"", mod_name, webhook.name)
+        } else {
+            format!("Failed to send update notification for \"{}\" to webhook \"{}\"", mod_name, webhook.name)
+        },
+        timestamp: Utc::now(),
+        metadata: Some(json!({
+            "webhook_name": webhook.name,
+            "webhook_id": webhook.id,
+            "error": error_text,
+        }).to_string()),
+    };
+    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+
+    if !result {
+        if let Some(error_text) = error_text {
+            println!("Discord API error: {}", error_text);
+            return Err(format!("Discord API error: {}", error_text));
+        }
     }
 
-    Ok(response.status().is_success())
+    Ok(result)
 }
