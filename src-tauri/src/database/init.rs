@@ -21,6 +21,9 @@ pub fn ensure_database_exists(db_path: &Path) -> Result<()> {
 }
 
 pub fn initialize_database(connection: &Connection) -> Result<()> {
+    // Enable foreign key support
+    connection.execute("PRAGMA foreign_keys = ON", [])?;
+
     // Create mods table if it doesn't exist
     connection.execute(
         "CREATE TABLE IF NOT EXISTS mods (
@@ -47,7 +50,22 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
         [],
     )?;
 
-    // Create mod_webhook_assignments table if it doesn't exist
+    // Create activities table
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS activities (
+            id INTEGER PRIMARY KEY,
+            activity_type TEXT NOT NULL,
+            mod_id INTEGER,
+            mod_name TEXT,
+            description TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            metadata TEXT,
+            FOREIGN KEY (mod_id) REFERENCES mods (id) ON DELETE SET NULL
+        )",
+        [],
+    )?;
+
+    // Create mod_webhook_assignments table
     connection.execute(
         "CREATE TABLE IF NOT EXISTS mod_webhook_assignments (
             mod_id INTEGER NOT NULL,
@@ -59,7 +77,7 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
         [],
     )?;
 
-    // Create webhook_templates table if it doesn't exist
+    // Create webhook_templates table
     connection.execute(
         "CREATE TABLE IF NOT EXISTS webhook_templates (
             id INTEGER PRIMARY KEY,

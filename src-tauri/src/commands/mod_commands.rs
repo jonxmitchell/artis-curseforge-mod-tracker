@@ -1,13 +1,12 @@
 use crate::database::{
-    mods, Mod, ModWithWebhooks,
+    mods::{self, Mod, ModWithWebhooks},
     activities::{Activity, add_activity},
     get_database_path, ensure_database_exists,
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, Result, params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use reqwest::header::HeaderMap;
-use anyhow::Result;
 use chrono::Utc;
 use serde_json::json;
 
@@ -274,33 +273,71 @@ pub fn get_mods(app_handle: AppHandle) -> Result<Vec<ModWithWebhooks>, String> {
 #[tauri::command]
 pub fn delete_mod(app_handle: AppHandle, mod_id: i64) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
-    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    
+    // Enable foreign key support
+    conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
+    
+    // Start a transaction
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    
+    println!("Starting mod deletion process for mod_id: {}", mod_id);
     
     // Get mod info before deletion for activity log
-    let mod_info: (String, String) = conn.query_row(
+    let mod_info: Option<(String, String)> = tx.query_row(
         "SELECT name, game_name FROM mods WHERE id = ?1",
-        [mod_id],
+        params![mod_id],
         |row| Ok((row.get(0)?, row.get(1)?))
-    ).map_err(|e| e.to_string())?;
+    ).optional().map_err(|e| e.to_string())?;
 
-    // Delete the mod
-    mods::delete_mod(&conn, mod_id).map_err(|e| e.to_string())?;
+    if let Some((name, game_name)) = mod_info {
+        // Clear relations first
+        println!("Clearing mod webhook assignments...");
+        tx.execute(
+            "DELETE FROM mod_webhook_assignments WHERE mod_id = ?1",
+            params![mod_id],
+        ).map_err(|e| format!("Failed to delete webhook assignments: {}", e))?;
 
-    // Log activity for mod deletion
-    let activity = Activity {
-        id: None,
-        activity_type: "mod_removed".to_string(),
-        mod_id: Some(mod_id),
-        mod_name: Some(mod_info.0.clone()),
-        description: format!("Removed mod \"{}\"", mod_info.0),
-        timestamp: Utc::now(),
-        metadata: Some(json!({
-            "game": mod_info.1
-        }).to_string()),
-    };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+        println!("Updating activities...");
+        tx.execute(
+            "UPDATE activities SET mod_id = NULL WHERE mod_id = ?1",
+            params![mod_id],
+        ).map_err(|e| format!("Failed to update activities: {}", e))?;
 
-    Ok(())
+        // Delete the mod
+        println!("Deleting mod {}...", name);
+        tx.execute(
+            "DELETE FROM mods WHERE id = ?1",
+            params![mod_id],
+        ).map_err(|e| format!("Failed to delete mod: {}", e))?;
+
+        // Add deletion activity
+        println!("Logging deletion activity...");
+        tx.execute(
+            "INSERT INTO activities (
+                activity_type, mod_id, mod_name, description, timestamp, metadata
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                "mod_removed",
+                Option::<i64>::None,  // mod_id is null for deletion activity
+                name.clone(),
+                format!("Removed mod \"{}\"", name),
+                Utc::now().to_rfc3339(),
+                json!({
+                    "game": game_name,
+                    "deleted_mod_id": mod_id
+                }).to_string(),
+            ],
+        ).map_err(|e| format!("Failed to log activity: {}", e))?;
+
+        println!("Committing transaction...");
+        tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
+        
+        println!("Mod deletion completed successfully");
+        Ok(())
+    } else {
+        Err("Mod not found".to_string())
+    }
 }
 
 #[tauri::command]

@@ -28,6 +28,7 @@ function formatDate(dateString) {
 
 export default function ModCard({ mod, onDelete, onUpdate, onManageWebhooks }) {
   const [isChecking, setIsChecking] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!mod) {
     console.error("Invalid mod data:", mod);
@@ -44,6 +45,22 @@ export default function ModCard({ mod, onDelete, onUpdate, onManageWebhooks }) {
       console.error("Error checking for updates:", error);
     } finally {
       setIsChecking(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(id);
+      console.log("Mod deleted successfully:", id);
+    } catch (error) {
+      console.error("Error deleting mod:", error);
+      // Add user notification here
+      throw error; // Re-throw to be handled by parent component
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -74,7 +91,7 @@ export default function ModCard({ mod, onDelete, onUpdate, onManageWebhooks }) {
                 <Button color="primary" variant="flat" className="w-full mb-2" onClick={() => onManageWebhooks(id)}>
                   Manage Webhooks
                 </Button>
-                <Button color="danger" variant="flat" className="w-full" startContent={<Trash2 size={18} />} onClick={() => onDelete(id)}>
+                <Button color="danger" variant="flat" className="w-full" startContent={<Trash2 size={18} />} onClick={handleDelete} isLoading={isDeleting}>
                   Delete Mod
                 </Button>
               </div>

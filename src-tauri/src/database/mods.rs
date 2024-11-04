@@ -83,22 +83,6 @@ pub fn update_mod_last_updated(conn: &Connection, mod_id: i64, last_updated: &st
     Ok(())
 }
 
-pub fn delete_mod(conn: &Connection, mod_id: i64) -> Result<()> {
-    // First delete webhook assignments
-    conn.execute(
-        "DELETE FROM mod_webhook_assignments WHERE mod_id = ?1",
-        params![mod_id],
-    )?;
-
-    // Then delete the mod
-    conn.execute(
-        "DELETE FROM mods WHERE id = ?1",
-        params![mod_id],
-    )?;
-
-    Ok(())
-}
-
 pub fn assign_webhook_to_mod(conn: &Connection, mod_id: i64, webhook_id: i64) -> Result<()> {
     conn.execute(
         "INSERT OR IGNORE INTO mod_webhook_assignments (mod_id, webhook_id) VALUES (?1, ?2)",
