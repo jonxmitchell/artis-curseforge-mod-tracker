@@ -25,7 +25,7 @@ pub async fn add_activity_entry(
         metadata,
     };
 
-    add_activity(&conn, &activity).map_err(|e| e.to_string())
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

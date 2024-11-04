@@ -171,7 +171,7 @@ pub async fn add_mod(
             "initial_version_date": curse_data.data.date_modified,
         }).to_string()),
     };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     let mut mod_with_webhooks = ModWithWebhooks {
         mod_info: mod_data,
@@ -232,7 +232,7 @@ pub async fn check_mod_update(
             .map(|author| author.name.clone())
             .unwrap_or_else(|| "Unknown Author".to_string());
 
-        // Log activity for mod update
+        // Always log the mod update activity
         let activity = Activity {
             id: None,
             activity_type: "mod_updated".to_string(),
@@ -247,7 +247,8 @@ pub async fn check_mod_update(
                 "latest_file": latest_file.file_name.clone(),
             }).to_string()),
         };
-        add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+        add_activity(Some(&app_handle), &conn, &activity)
+            .map_err(|e| e.to_string())?;
 
         Ok(Some(ModUpdateInfo {
             mod_id,
@@ -319,7 +320,7 @@ pub fn delete_mod(app_handle: AppHandle, mod_id: i64) -> Result<(), String> {
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 "mod_removed",
-                Option::<i64>::None,  // mod_id is null for deletion activity
+                Option::<i64>::None,
                 name.clone(),
                 format!("Removed mod \"{}\"", name),
                 Utc::now().to_rfc3339(),
@@ -374,7 +375,7 @@ pub fn assign_webhook(app_handle: AppHandle, mod_id: i64, webhook_id: i64) -> Re
             "webhook_name": webhook_name
         }).to_string()),
     };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -413,7 +414,7 @@ pub fn remove_webhook_assignment(app_handle: AppHandle, mod_id: i64, webhook_id:
             "webhook_name": webhook_name
         }).to_string()),
     };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     Ok(())
 }

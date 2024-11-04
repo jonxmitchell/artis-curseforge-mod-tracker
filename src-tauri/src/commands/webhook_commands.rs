@@ -119,7 +119,7 @@ pub fn add_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<Webhook, S
             "webhook_id": webhook_id,
         }).to_string()),
     };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     let mut new_webhook = webhook;
     new_webhook.id = Some(webhook_id);
@@ -153,7 +153,7 @@ pub fn update_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<(), Str
             "webhook_id": webhook.id,
         }).to_string()),
     };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -186,7 +186,7 @@ pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), Stri
             "webhook_id": webhook_id,
         }).to_string()),
     };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -369,7 +369,7 @@ pub async fn send_update_notification(
             "error": error_text,
         }).to_string()),
     };
-    add_activity(&conn, &activity).map_err(|e| e.to_string())?;
+    add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     if !result {
         if let Some(error_text) = error_text {

@@ -1,8 +1,9 @@
 use rusqlite::{Connection, Result, params};
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use tauri::Manager;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]  // Added Clone
 pub struct Activity {
     pub id: Option<i64>,
     pub activity_type: String,  // "mod_added", "mod_updated", "mod_removed", etc.
@@ -33,7 +34,7 @@ pub fn initialize_activities_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub fn add_activity(conn: &Connection, activity: &Activity) -> Result<i64> {
+pub fn add_activity(app_handle: Option<&tauri::AppHandle>, conn: &Connection, activity: &Activity) -> Result<i64> {
     // First, check if we need to remove old activities
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM activities",
@@ -67,7 +68,18 @@ pub fn add_activity(conn: &Connection, activity: &Activity) -> Result<i64> {
         ],
     )?;
 
-    Ok(conn.last_insert_rowid())
+    let id = conn.last_insert_rowid();
+
+    // If app_handle is provided, emit the new activity event
+    if let Some(handle) = app_handle {
+        let mut activity_with_id = activity.clone();
+        activity_with_id.id = Some(id);
+        handle.emit_all("new_activity", &activity_with_id).unwrap_or_else(|e| {
+            eprintln!("Failed to emit new activity event: {}", e);
+        });
+    }
+
+    Ok(id)
 }
 
 pub fn get_recent_activities(conn: &Connection, limit: Option<i64>) -> Result<Vec<Activity>> {
