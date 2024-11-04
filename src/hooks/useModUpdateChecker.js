@@ -1,13 +1,21 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 
 export function useModUpdateChecker() {
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState(null);
+  const checkInProgressRef = useRef(false);
 
   const checkForUpdates = async (updateInterval, onSuccess) => {
+    // Prevent multiple simultaneous checks
+    if (checkInProgressRef.current) {
+      console.log("Update check already in progress, skipping...");
+      return;
+    }
+
     try {
       setIsChecking(true);
+      checkInProgressRef.current = true;
       setError(null);
 
       // First, load the latest data
@@ -28,48 +36,53 @@ export function useModUpdateChecker() {
           currentLastUpdated,
         });
 
-        const apiKey = await invoke("get_api_key");
-        const updateInfo = await invoke("check_mod_update", {
-          modId,
-          curseforgeId,
-          currentLastUpdated,
-          apiKey,
-        });
+        try {
+          const apiKey = await invoke("get_api_key");
+          const updateInfo = await invoke("check_mod_update", {
+            modId,
+            curseforgeId,
+            currentLastUpdated,
+            apiKey,
+          });
 
-        console.log("Update check result:", updateInfo);
+          console.log("Update check result:", updateInfo);
 
-        if (updateInfo) {
-          updatesFound = true;
-          console.log("Update found for mod:", modId);
+          if (updateInfo) {
+            updatesFound = true;
+            console.log("Update found for mod:", modId);
 
-          // If there's an update, send notifications through enabled webhooks
-          const modWebhooks = await invoke("get_mod_assigned_webhooks", { modId });
-          console.log("Assigned webhooks:", modWebhooks);
+            // If there's an update, send notifications through enabled webhooks
+            const modWebhooks = await invoke("get_mod_assigned_webhooks", { modId });
+            console.log("Assigned webhooks:", modWebhooks);
 
-          for (const webhook of modWebhooks) {
-            if (webhook.enabled) {
-              console.log("Sending notification through webhook:", webhook.id);
-              console.log("UpdateInfo data:", updateInfo);
-              try {
-                const result = await invoke("send_update_notification", {
-                  webhook,
-                  modName: updateInfo.name,
-                  modAuthor: updateInfo.mod_author,
-                  newReleaseDate: updateInfo.new_update_time,
-                  oldReleaseDate: updateInfo.old_update_time,
-                  latestFileName: updateInfo.latest_file_name,
-                  modId: updateInfo.mod_id,
-                });
-                console.log("Notification result:", result);
-              } catch (error) {
-                console.error("Failed to send webhook notification:", error);
-                console.error("Webhook data:", webhook);
-                console.error("Update info:", updateInfo);
-              }
-            }
+            // Use Promise.all to send webhook notifications in parallel
+            await Promise.all(
+              modWebhooks.map(async (webhook) => {
+                if (webhook.enabled) {
+                  console.log("Sending notification through webhook:", webhook.id);
+                  try {
+                    const result = await invoke("send_update_notification", {
+                      webhook,
+                      modName: updateInfo.name,
+                      modAuthor: updateInfo.mod_author,
+                      newReleaseDate: updateInfo.new_update_time,
+                      oldReleaseDate: updateInfo.old_update_time,
+                      latestFileName: updateInfo.latest_file_name,
+                      modId: updateInfo.mod_id,
+                    });
+                    console.log("Notification result:", result);
+                  } catch (error) {
+                    console.error("Failed to send webhook notification:", error);
+                  }
+                }
+              })
+            );
+          } else {
+            console.log("No update found for mod:", modId);
           }
-        } else {
-          console.log("No update found for mod:", modId);
+        } catch (error) {
+          console.error(`Error checking mod ${modId}:`, error);
+          // Continue checking other mods even if one fails
         }
       }
 
@@ -90,22 +103,12 @@ export function useModUpdateChecker() {
       return { success: false, error };
     } finally {
       setIsChecking(false);
+      checkInProgressRef.current = false;
     }
   };
 
-  /**
-   * Get the loading state of the update check
-   */
   const getIsChecking = () => isChecking;
-
-  /**
-   * Get any error that occurred during the update check
-   */
   const getError = () => error;
-
-  /**
-   * Clear any error that occurred during the update check
-   */
   const clearError = () => setError(null);
 
   return {
