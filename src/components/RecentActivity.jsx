@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Card, CardHeader, CardBody, Button, Tooltip } from "@nextui-org/react";
+import { Card, CardHeader, CardBody, Button, Tooltip, ScrollShadow } from "@nextui-org/react";
 import { Clock, Package2, Trash2, Plus, AlertTriangle, ChevronDown } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { listen } from "@tauri-apps/api/event";
@@ -158,7 +158,7 @@ export default function RecentActivity() {
 
   return (
     <Card className="bg-content backdrop-blur-md h-full">
-      <CardHeader className="flex justify-between items-center">
+      <CardHeader className="flex justify-between items-center shrink-0">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-primary/10">
             <Clock size={24} className="text-primary" />
@@ -174,7 +174,7 @@ export default function RecentActivity() {
           </div>
         )}
       </CardHeader>
-      <CardBody className="p-2 overflow-hidden">
+      <CardBody className="p-0 overflow-hidden">
         {error ? (
           <div className="flex flex-col items-center justify-center p-8 h-full">
             <AlertTriangle className="text-danger mb-2" size={24} />
@@ -186,30 +186,34 @@ export default function RecentActivity() {
             <p className="text-center text-default-500">No recent activity</p>
           </div>
         ) : (
-          <div className="space-y-4 px-4 h-full overflow-y-auto">
-            {activities.slice(0, isExpanded ? undefined : 25).map((activity) => (
-              <div key={activity.id} className="flex items-start gap-3 group">
-                <ActivityIcon type={activity.activity_type} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm">{activity.description}</p>
-                  {activity.mod_name && (
-                    <div className="flex items-center gap-1 mt-1">
-                      <Package2 className="text-default-400" size={12} />
-                      <span className="text-xs text-default-400 truncate">{activity.mod_name}</span>
+          <ScrollShadow hideScrollBar className="h-full">
+            <div className="px-4 py-4">
+              <div className="space-y-4">
+                {activities.slice(0, isExpanded ? undefined : 25).map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-3 group">
+                    <ActivityIcon type={activity.activity_type} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">{activity.description}</p>
+                      {activity.mod_name && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Package2 className="text-default-400" size={12} />
+                          <span className="text-xs text-default-400 truncate">{activity.mod_name}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <Tooltip content={new Date(activity.timestamp).toLocaleString()}>
-                  <span className="text-xs text-default-400 whitespace-nowrap">{activity.timeAgo}</span>
-                </Tooltip>
+                    <Tooltip content={new Date(activity.timestamp).toLocaleString()}>
+                      <span className="text-xs text-default-400 whitespace-nowrap">{activity.timeAgo}</span>
+                    </Tooltip>
+                  </div>
+                ))}
               </div>
-            ))}
-            {activities.length > 8 && (
-              <Button variant="flat" color="primary" size="sm" className="w-full" endContent={<ChevronDown size={18} className={`transform transition-transform ${isExpanded ? "rotate-180" : ""}`} />} onPress={() => setIsExpanded(!isExpanded)}>
-                {isExpanded ? "Show Less" : "Show More"}
-              </Button>
-            )}
-          </div>
+              {activities.length > 8 && (
+                <Button variant="flat" color="primary" size="sm" className="w-full mt-4" endContent={<ChevronDown size={18} className={`transform transition-transform ${isExpanded ? "rotate-180" : ""}`} />} onPress={() => setIsExpanded(!isExpanded)}>
+                  {isExpanded ? "Show Less" : "Show More"}
+                </Button>
+              )}
+            </div>
+          </ScrollShadow>
         )}
       </CardBody>
     </Card>

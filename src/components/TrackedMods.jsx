@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardHeader, CardBody, Button, Chip } from "@nextui-org/react";
-import { Package2, ArrowUpRight, Gamepad2, Plus } from "lucide-react";
+import { Card, CardHeader, CardBody, Button, Chip, Tooltip, ScrollShadow } from "@nextui-org/react";
+import { Package2, ArrowUpRight, Gamepad2, Plus, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
@@ -11,21 +11,31 @@ const fadeInUp = {
   transition: { duration: 0.3 },
 };
 
-function ModCard({ name, onClick }) {
+function ModChip({ name, lastUpdated, onClick }) {
   return (
-    <motion.div whileHover={{ scale: 1.02 }} className="group">
-      <Button variant="flat" className="w-full justify-start h-auto py-3 px-4 bg-content2/40 hover:bg-content2/80" onClick={onClick}>
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20">
-            <Package2 size={14} className="text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="truncate font-medium text-default-700">{name}</p>
-            <p className="text-tiny text-default-500">Last checked: {new Date().toLocaleDateString()}</p>
+    <Tooltip
+      content={
+        <div className="px-1 py-2">
+          <div className="text-small font-bold">{name}</div>
+          <div className="text-tiny flex items-center mt-1 text-default-400">
+            <Clock size={12} className="mr-1" />
+            {new Date(lastUpdated).toLocaleDateString()}
           </div>
         </div>
-      </Button>
-    </motion.div>
+      }
+    >
+      <Chip
+        className="cursor-pointer hover:scale-105 transition-transform"
+        onClick={onClick}
+        variant="flat"
+        classNames={{
+          base: "bg-default-100 hover:bg-default-200",
+          content: "text-small",
+        }}
+      >
+        {name}
+      </Chip>
+    </Tooltip>
   );
 }
 
@@ -68,8 +78,6 @@ export default function TrackedMods({ mods, onAddMod }) {
     return groups;
   }, [mods]);
 
-  console.log("TrackedMods - Grouped Mods:", Array.from(groupedMods.entries()));
-
   return (
     <Card className="flex-1 bg-content1/70 backdrop-blur-md">
       <CardHeader className="shrink-0 flex justify-between items-center px-6 py-4">
@@ -90,36 +98,38 @@ export default function TrackedMods({ mods, onAddMod }) {
         {!mods.length ? (
           <EmptyModsState onAdd={onAddMod} />
         ) : (
-          <motion.div className="h-full overflow-y-auto px-6 py-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <div className="space-y-6">
-              {Array.from(groupedMods.entries()).map(([game, gameMods]) => (
-                <motion.div key={game} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-md bg-secondary/10">
-                      <Gamepad2 size={16} className="text-secondary" />
+          <ScrollShadow className="h-full" hideScrollBar>
+            <motion.div className="px-6 py-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+              <div className="space-y-6">
+                {Array.from(groupedMods.entries()).map(([game, gameMods]) => (
+                  <motion.div key={game} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 rounded-md bg-secondary/10">
+                        <Gamepad2 size={16} className="text-secondary" />
+                      </div>
+                      <p className="font-medium text-default-700">{game}</p>
+                      <div className="h-[1px] flex-1 bg-default-200/30 mx-2" />
+                      <Chip
+                        size="sm"
+                        variant="flat"
+                        classNames={{
+                          base: "bg-secondary/10",
+                          content: "text-tiny font-medium text-secondary",
+                        }}
+                      >
+                        {gameMods.length} {gameMods.length === 1 ? "mod" : "mods"}
+                      </Chip>
                     </div>
-                    <p className="font-medium text-default-700">{game}</p>
-                    <div className="h-[1px] flex-1 bg-default-200/30 mx-2" />
-                    <Chip
-                      size="sm"
-                      variant="flat"
-                      classNames={{
-                        base: "bg-secondary/10",
-                        content: "text-tiny font-medium text-secondary",
-                      }}
-                    >
-                      {gameMods.length} {gameMods.length === 1 ? "mod" : "mods"}
-                    </Chip>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {gameMods.map((mod) => (
-                      <ModCard key={mod.id} name={mod.name} onClick={() => router.push("/mods")} />
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+                    <div className="flex flex-wrap gap-2">
+                      {gameMods.map((mod) => (
+                        <ModChip key={mod.id} name={mod.name} lastUpdated={mod.last_updated} onClick={() => router.push("/mods")} />
+                      ))}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </ScrollShadow>
         )}
       </CardBody>
     </Card>
