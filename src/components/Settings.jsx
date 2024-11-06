@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { emit } from "@tauri-apps/api/event";
 
 const UPDATE_INTERVALS = [
+  { value: 1, label: "1 minute" },
   { value: 5, label: "5 minutes" },
   { value: 15, label: "15 minutes" },
   { value: 30, label: "30 minutes" },

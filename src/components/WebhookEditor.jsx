@@ -5,6 +5,7 @@ import { Card, CardBody, Input, Switch, Button, Textarea, Popover, PopoverTrigge
 import { Trash2, Plus, MoveUp, MoveDown, Info, MessageSquare, Eye, FileText, Crown, Bot, Image as ImageIcon, Calendar, RefreshCw, AlertTriangle } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { motion, AnimatePresence } from "framer-motion";
+import DiscordPreview from "./DiscordPreview";
 
 const VariableReference = ({ type, variables }) => (
   <div>
@@ -58,53 +59,6 @@ const TemplateVariablesHelp = () => {
         </div>
       </PopoverContent>
     </Popover>
-  );
-};
-
-const PreviewEmbed = ({ template, fields }) => {
-  const colorHex = `#${template.color.toString(16).padStart(6, "0")}`;
-
-  return (
-    <div className="border rounded-lg p-4" style={{ backgroundColor: "#16171a" }}>
-      <div className="space-y-3">
-        {/* Author Section */}
-        {template.author_name && (
-          <div className="flex items-center gap-2">
-            {template.author_icon_url && <div className="w-6 h-6 rounded-full bg-default-300" />}
-            <span className="text-sm text-default-200">{template.author_name}</span>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="pl-4 border-l-4" style={{ borderColor: colorHex }}>
-          <div className="text-default-100 font-medium mb-2">{template.title}</div>
-          <div className="grid grid-cols-2 gap-4">
-            {fields.map((field, index) => (
-              <div key={index} className={field.inline ? "" : "col-span-2"}>
-                <div className="text-default-200 text-xs font-medium mb-1">{field.name || "Field Name"}</div>
-                <div className="text-default-300 text-sm">{field.value || "Field Value"}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer Section */}
-        {(template.footer_text || template.include_timestamp) && (
-          <div className="flex items-center gap-2 mt-2">
-            {template.footer_icon_url && <div className="w-5 h-5 rounded-full bg-default-300" />}
-            <span className="text-xs text-default-400">
-              {template.footer_text}
-              {template.include_timestamp && (
-                <>
-                  {template.footer_text && " • "}
-                  {new Date().toLocaleString()}
-                </>
-              )}
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
   );
 };
 
@@ -247,167 +201,157 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
   }
 
   return (
-    <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <FileText size={20} className="text-primary" />
-          <div>
-            <h3 className="text-lg font-semibold">Template Editor</h3>
-            <p className="text-sm text-default-500">Customize your notification format</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Tooltip content={showPreview ? "Hide Preview" : "Show Preview"}>
-            <Button isIconOnly variant="flat" color={showPreview ? "primary" : "default"} onPress={() => setShowPreview(!showPreview)}>
-              <Eye size={18} />
-            </Button>
-          </Tooltip>
-          <TemplateVariablesHelp />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className={`grid ${showPreview ? "grid-cols-2" : "grid-cols-1"} gap-6`}>
-        {/* Editor Section */}
-        <div className="space-y-6">
-          {/* Message Format */}
-          <Card>
-            <CardBody className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Switch isSelected={template.use_embed} onValueChange={(value) => setTemplate({ ...template, use_embed: value })}>
-                  Use Embed Format
-                </Switch>
-                <Chip color={template.use_embed ? "primary" : "default"} variant="flat">
-                  {template.use_embed ? "Rich Embed" : "Simple Message"}
-                </Chip>
+    <Card className="w-full h-full">
+      <CardBody className="p-6">
+        <motion.div className="h-full flex flex-col gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {/* Header */}
+          <div className="flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <FileText size={20} className="text-primary" />
+              <div>
+                <h3 className="text-lg font-semibold">Template Editor</h3>
+                <p className="text-sm text-default-500">Customize your notification format</p>
               </div>
-
-              {!template.use_embed && <Textarea label="Message Content" placeholder="Enter your message content..." value={template.content || ""} onChange={(e) => setTemplate({ ...template, content: e.target.value })} minRows={4} />}
-            </CardBody>
-          </Card>
-
-          {template.use_embed && (
-            <>
-              {/* Title and Color */}
-              <Card>
-                <CardBody className="space-y-4">
-                  <Input label="Embed Title" placeholder="Enter a title..." value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} startContent={<MessageSquare size={16} className="text-default-400" />} />
-                  <div className="flex items-center gap-4">
-                    <Input
-                      type="color"
-                      label="Accent Color"
-                      value={`#${template.color.toString(16).padStart(6, "0")}`}
-                      onChange={(e) =>
-                        setTemplate({
-                          ...template,
-                          color: parseInt(e.target.value.slice(1), 16),
-                        })
-                      }
-                    />
-                    <div className="w-10 h-10 rounded-lg shadow-inner" style={{ backgroundColor: `#${template.color.toString(16).padStart(6, "0")}` }} />
-                  </div>
-                </CardBody>
-              </Card>
-
-              {/* Author Section */}
-              <Card>
-                <CardBody className="space-y-4">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    <Bot size={16} className="text-primary" />
-                    Author Settings
-                  </h3>
-                  <Input label="Author Name" placeholder="Enter author name..." value={template.author_name || ""} onChange={(e) => setTemplate({ ...template, author_name: e.target.value })} />
-                  <Input label="Author Icon URL" placeholder="Enter icon URL..." value={template.author_icon_url || ""} onChange={(e) => setTemplate({ ...template, author_icon_url: e.target.value })} startContent={<ImageIcon size={16} className="text-default-400" />} />
-                </CardBody>
-              </Card>
-
-              {/* Embed Fields */}
-              <Card>
-                <CardBody className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-medium">Embed Fields</h3>
-                    <Button size="sm" color="primary" variant="flat" startContent={<Plus size={16} />} onPress={addField}>
-                      Add Field
-                    </Button>
-                  </div>
-
-                  <AnimatePresence mode="popLayout">
-                    {fields.map((field, index) => (
-                      <motion.div key={index} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-default-500">Field {index + 1}</span>
-                            <Switch size="sm" isSelected={field.inline} onValueChange={(value) => updateField(index, "inline", value)}>
-                              Inline
-                            </Switch>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button isIconOnly size="sm" variant="light" onPress={() => moveField(index, "up")} isDisabled={index === 0}>
-                              <MoveUp size={16} />
-                            </Button>
-                            <Button isIconOnly size="sm" variant="light" onPress={() => moveField(index, "down")} isDisabled={index === fields.length - 1}>
-                              <MoveDown size={16} />
-                            </Button>
-                            <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => removeField(index)}>
-                              <Trash2 size={16} />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <Input size="sm" label="Name" placeholder="Field name..." value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
-                          <Input size="sm" label="Value" placeholder="Field value..." value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </CardBody>
-              </Card>
-
-              {/* Footer Settings */}
-              <Card>
-                <CardBody className="space-y-4">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    <Calendar size={16} className="text-primary" />
-                    Footer Settings
-                  </h3>
-                  <Input label="Footer Text" placeholder="Enter footer text..." value={template.footer_text || ""} onChange={(e) => setTemplate({ ...template, footer_text: e.target.value })} />
-                  <Input label="Footer Icon URL" placeholder="Enter icon URL..." value={template.footer_icon_url || ""} onChange={(e) => setTemplate({ ...template, footer_icon_url: e.target.value })} startContent={<ImageIcon size={16} className="text-default-400" />} />
-                  <Switch isSelected={template.include_timestamp} onValueChange={(value) => setTemplate({ ...template, include_timestamp: value })}>
-                    Include Timestamp
-                  </Switch>
-                </CardBody>
-              </Card>
-            </>
-          )}
-
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <Button color="primary" size="lg" onPress={handleSave} isLoading={isSaving} className="w-full sm:w-auto">
-              Save Changes
-            </Button>
-          </div>
-        </div>
-
-        {/* Preview Section */}
-        {showPreview && (
-          <div className="space-y-4">
+            </div>
             <div className="flex items-center gap-2">
-              <MessageSquare size={16} className="text-primary" />
-              <h3 className="text-sm font-medium">Live Preview</h3>
-            </div>
-            <div className="sticky top-4">
-              {template.use_embed ? (
-                <PreviewEmbed template={template} fields={fields} />
-              ) : (
-                <div className="border rounded-lg p-4 bg-[#313338]">
-                  <p className="text-default-200 whitespace-pre-wrap">{template.content || "No content set"}</p>
-                </div>
-              )}
+              <Tooltip content={showPreview ? "Hide Preview" : "Show Preview"}>
+                <Button isIconOnly variant="flat" color={showPreview ? "primary" : "default"} onPress={() => setShowPreview(!showPreview)}>
+                  <Eye size={18} />
+                </Button>
+              </Tooltip>
+              <TemplateVariablesHelp />
             </div>
           </div>
-        )}
-      </div>
-    </motion.div>
+
+          {/* Main Content */}
+          <div className={`grid ${showPreview ? "grid-cols-2" : "grid-cols-1"} gap-6 flex-1 min-h-0`}>
+            {/* Editor Section */}
+            <ScrollShadow className="pr-4">
+              <div className="space-y-6 pb-6">
+                {/* Message Format */}
+                <Card>
+                  <CardBody className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Switch isSelected={template.use_embed} onValueChange={(value) => setTemplate({ ...template, use_embed: value })}>
+                        Use Embed Format
+                      </Switch>
+                      <Chip color={template.use_embed ? "primary" : "default"} variant="flat">
+                        {template.use_embed ? "Rich Embed" : "Simple Message"}
+                      </Chip>
+                    </div>
+
+                    {!template.use_embed && <Textarea label="Message Content" placeholder="Enter your message content..." value={template.content || ""} onChange={(e) => setTemplate({ ...template, content: e.target.value })} minRows={4} />}
+                  </CardBody>
+                </Card>
+
+                {template.use_embed && (
+                  <>
+                    {/* Title and Color */}
+                    <Card>
+                      <CardBody className="space-y-4">
+                        <Input label="Embed Title" placeholder="Enter a title..." value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} startContent={<MessageSquare size={16} className="text-default-400" />} />
+                        <div className="flex items-center gap-4">
+                          <Input
+                            type="color"
+                            label="Accent Color"
+                            value={`#${template.color.toString(16).padStart(6, "0")}`}
+                            onChange={(e) =>
+                              setTemplate({
+                                ...template,
+                                color: parseInt(e.target.value.slice(1), 16),
+                              })
+                            }
+                          />
+                          <div className="w-10 h-10 rounded-lg shadow-inner" style={{ backgroundColor: `#${template.color.toString(16).padStart(6, "0")}` }} />
+                        </div>
+                      </CardBody>
+                    </Card>
+
+                    {/* Author Section */}
+                    <Card>
+                      <CardBody className="space-y-4">
+                        <h3 className="text-sm font-medium flex items-center gap-2">
+                          <Bot size={16} className="text-primary" />
+                          Author Settings
+                        </h3>
+                        <Input label="Author Name" placeholder="Enter author name..." value={template.author_name || ""} onChange={(e) => setTemplate({ ...template, author_name: e.target.value })} />
+                        <Input label="Author Icon URL" placeholder="Enter icon URL..." value={template.author_icon_url || ""} onChange={(e) => setTemplate({ ...template, author_icon_url: e.target.value })} startContent={<ImageIcon size={16} className="text-default-400" />} />
+                      </CardBody>
+                    </Card>
+
+                    {/* Embed Fields */}
+                    <Card>
+                      <CardBody className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-sm font-medium">Embed Fields</h3>
+                          <Button size="sm" color="primary" variant="flat" startContent={<Plus size={16} />} onPress={addField}>
+                            Add Field
+                          </Button>
+                        </div>
+
+                        <AnimatePresence mode="popLayout">
+                          {fields.map((field, index) => (
+                            <motion.div key={index} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="border rounded-lg p-4 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-default-500">Field {index + 1}</span>
+                                  <Switch size="sm" isSelected={field.inline} onValueChange={(value) => updateField(index, "inline", value)}>
+                                    Inline
+                                  </Switch>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button isIconOnly size="sm" variant="light" onPress={() => moveField(index, "up")} isDisabled={index === 0}>
+                                    <MoveUp size={16} />
+                                  </Button>
+                                  <Button isIconOnly size="sm" variant="light" onPress={() => moveField(index, "down")} isDisabled={index === fields.length - 1}>
+                                    <MoveDown size={16} />
+                                  </Button>
+                                  <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => removeField(index)}>
+                                    <Trash2 size={16} />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="space-y-3">
+                                <Input size="sm" label="Name" placeholder="Field name..." value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
+                                <Input size="sm" label="Value" placeholder="Field value..." value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </CardBody>
+                    </Card>
+
+                    {/* Footer Settings */}
+                    <Card>
+                      <CardBody className="space-y-4">
+                        <h3 className="text-sm font-medium flex items-center gap-2">
+                          <Calendar size={16} className="text-primary" />
+                          Footer Settings
+                        </h3>
+                        <Input label="Footer Text" placeholder="Enter footer text..." value={template.footer_text || ""} onChange={(e) => setTemplate({ ...template, footer_text: e.target.value })} />
+                        <Input label="Footer Icon URL" placeholder="Enter icon URL..." value={template.footer_icon_url || ""} onChange={(e) => setTemplate({ ...template, footer_icon_url: e.target.value })} startContent={<ImageIcon size={16} className="text-default-400" />} />
+                        <Switch isSelected={template.include_timestamp} onValueChange={(value) => setTemplate({ ...template, include_timestamp: value })}>
+                          Include Timestamp
+                        </Switch>
+                      </CardBody>
+                    </Card>
+                  </>
+                )}
+
+                {/* Save Button */}
+                <div className="flex justify-end">
+                  <Button color="primary" size="lg" onPress={handleSave} isLoading={isSaving} className="w-full sm:w-auto">
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            </ScrollShadow>
+
+            {/* Preview Section */}
+            {showPreview && <DiscordPreview template={template} fields={fields} />}
+          </div>
+        </motion.div>
+      </CardBody>
+    </Card>
   );
 }
