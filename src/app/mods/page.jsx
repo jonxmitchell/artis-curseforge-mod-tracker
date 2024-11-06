@@ -142,7 +142,16 @@ export default function ModsPage() {
         <div className="h-full w-full mx-auto flex flex-col gap-6 p-1">
           {/* Header */}
           <div className="flex justify-between items-center shrink-0">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Tracked Mods</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Tracked Mods</h1>
+              {mods.length > 0 && (
+                <div className="px-3 py-1 rounded-full bg-primary/10">
+                  <span className="text-sm text-primary font-medium">
+                    {mods.length} {mods.length === 1 ? "Mod" : "Mods"}
+                  </span>
+                </div>
+              )}
+            </div>
             <div className="flex gap-3">
               <Button color="primary" startContent={<Plus size={20} />} onPress={() => setIsAddModalOpen(true)}>
                 Add Mod
