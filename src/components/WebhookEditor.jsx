@@ -1,65 +1,120 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardBody, Input, Switch, Button, Textarea, Popover, PopoverTrigger, PopoverContent } from "@nextui-org/react";
-import { Trash2, Plus, Move, Info } from "lucide-react";
+import { Card, CardBody, Input, Switch, Button, Textarea, Popover, PopoverTrigger, PopoverContent, ScrollShadow, Divider, Tooltip, Chip, CircularProgress } from "@nextui-org/react";
+import { Trash2, Plus, MoveUp, MoveDown, Info, MessageSquare, Eye, FileText, Crown, Bot, Image as ImageIcon, Calendar, RefreshCw, AlertTriangle } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { motion, AnimatePresence } from "framer-motion";
 
-function TemplateVariablesHelp() {
+const VariableReference = ({ type, variables }) => (
+  <div>
+    <h5 className="text-sm font-medium text-default-600 mb-2">{type}</h5>
+    <div className="grid grid-cols-1 gap-2">
+      {variables.map((variable) => (
+        <div key={variable.name} className="p-2 bg-default-50 rounded-lg flex items-center gap-2">
+          <code className="text-sm font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">{`{${variable.name}}`}</code>
+          <span className="text-sm text-default-600">{variable.description}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const TemplateVariablesHelp = () => {
+  const modVariables = [
+    { name: "modID", description: "Mod ID" },
+    { name: "modName", description: "Mod name" },
+    { name: "newReleaseDate", description: "New update time" },
+    { name: "oldPreviousDate", description: "Previous update time" },
+    { name: "lastestModFileName", description: "Latest mod file name" },
+    { name: "modAuthorName", description: "Mod author name" },
+  ];
+
+  const discordVariables = [
+    { name: "everyone", description: "@everyone mention" },
+    { name: "here", description: "@here mention" },
+    { name: "&roleID", description: "Mention a role (e.g., {&123456789})" },
+    { name: "#channelID", description: "Channel link (e.g., {#987654321})" },
+  ];
+
   return (
-    <Popover placement="right">
+    <Popover placement="right" showArrow>
       <PopoverTrigger>
-        <Button isIconOnly variant="light" size="sm">
-          <Info size={20} />
+        <Button isIconOnly variant="light" className="text-default-500 hover:text-primary transition-colors">
+          <Info size={18} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent>
+      <PopoverContent className="w-96">
         <div className="p-4">
-          <h4 className="text-lg font-semibold mb-2">Available Variables</h4>
-          <div className="space-y-2">
-            <p className="text-sm">
-              <code>{"{modID}"}</code> - Mod ID
-            </p>
-            <p className="text-sm">
-              <code>{"{modName}"}</code> - Mod name
-            </p>
-            <p className="text-sm">
-              <code>{"{newReleaseDate}"}</code> - New update time
-            </p>
-            <p className="text-sm">
-              <code>{"{oldPreviousDate}"}</code> - Previous update time
-            </p>
-            <p className="text-sm">
-              <code>{"{lastestModFileName}"}</code> - Latest mod file name
-            </p>
-            <p className="text-sm">
-              <code>{"{modAuthorName}"}</code> - Mod author name
-            </p>
-            <h5 className="text-md font-semibold mt-4 mb-2">Discord Mentions</h5>
-            <p className="text-sm">
-              <code>{"{everyone}"}</code> - @everyone mention
-            </p>
-            <p className="text-sm">
-              <code>{"{here}"}</code> - @here mention
-            </p>
-            <p className="text-sm">
-              <code>{"{&roleID}"}</code> - Mention a role (e.g., {"{&123456789}"})
-            </p>
-            <p className="text-sm">
-              <code>{"{#channelID}"}</code> - Channel link (e.g., {"{#987654321}"})
-            </p>
+          <div className="flex items-center gap-2 mb-4">
+            <MessageSquare size={18} className="text-primary" />
+            <h4 className="text-lg font-semibold">Available Variables</h4>
           </div>
+          <ScrollShadow className="max-h-[400px] space-y-6" hideScrollBar>
+            <VariableReference type="Mod Variables" variables={modVariables} />
+            <Divider />
+            <VariableReference type="Discord Variables" variables={discordVariables} />
+          </ScrollShadow>
         </div>
       </PopoverContent>
     </Popover>
   );
-}
+};
+
+const PreviewEmbed = ({ template, fields }) => {
+  const colorHex = `#${template.color.toString(16).padStart(6, "0")}`;
+
+  return (
+    <div className="border rounded-lg p-4" style={{ backgroundColor: "#16171a" }}>
+      <div className="space-y-3">
+        {/* Author Section */}
+        {template.author_name && (
+          <div className="flex items-center gap-2">
+            {template.author_icon_url && <div className="w-6 h-6 rounded-full bg-default-300" />}
+            <span className="text-sm text-default-200">{template.author_name}</span>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="pl-4 border-l-4" style={{ borderColor: colorHex }}>
+          <div className="text-default-100 font-medium mb-2">{template.title}</div>
+          <div className="grid grid-cols-2 gap-4">
+            {fields.map((field, index) => (
+              <div key={index} className={field.inline ? "" : "col-span-2"}>
+                <div className="text-default-200 text-xs font-medium mb-1">{field.name || "Field Name"}</div>
+                <div className="text-default-300 text-sm">{field.value || "Field Value"}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer Section */}
+        {(template.footer_text || template.include_timestamp) && (
+          <div className="flex items-center gap-2 mt-2">
+            {template.footer_icon_url && <div className="w-5 h-5 rounded-full bg-default-300" />}
+            <span className="text-xs text-default-400">
+              {template.footer_text}
+              {template.include_timestamp && (
+                <>
+                  {template.footer_text && " • "}
+                  {new Date().toLocaleString()}
+                </>
+              )}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
   const [template, setTemplate] = useState(null);
   const [fields, setFields] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     if (isDefault || webhook?.id) {
@@ -70,13 +125,10 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
   const loadTemplate = async () => {
     try {
       setIsLoading(true);
-      // If this is not the default template and the webhook doesn't use custom template,
-      // load the default template instead
+      setError(null);
       const webhookId = isDefault ? -1 : webhook?.use_custom_template ? webhook?.id : -1;
 
-      const templateData = await invoke("get_webhook_template", {
-        webhookId: webhookId,
-      });
+      const templateData = await invoke("get_webhook_template", { webhookId });
 
       if (templateData) {
         setTemplate({
@@ -86,7 +138,7 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
         });
         setFields(JSON.parse(templateData.embed_fields));
       } else {
-        // Set default template values if no template exists
+        // Set default values
         const defaultTemplate = {
           webhook_id: isDefault ? null : webhook?.id,
           is_default: isDefault,
@@ -111,6 +163,7 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
       }
     } catch (error) {
       console.error("Failed to load webhook template:", error);
+      setError("Failed to load template");
     } finally {
       setIsLoading(false);
     }
@@ -160,147 +213,201 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
   };
 
   if (isLoading) {
-    return <div className="text-center">Loading template...</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <CircularProgress size="lg" color="primary" />
+      </div>
+    );
   }
 
-  if (!template) {
-    return null;
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 p-8">
+        <AlertTriangle className="text-danger" size={24} />
+        <p className="text-center text-danger">{error}</p>
+        <Button color="primary" variant="flat" onPress={loadTemplate}>
+          Try Again
+        </Button>
+      </div>
+    );
   }
 
-  // If this is not the default template and the webhook doesn't use custom template,
-  // show a message instead
+  if (!template) return null;
+
   if (!isDefault && !webhook?.use_custom_template) {
     return (
-      <div className="text-center p-6 border border-dashed rounded-lg">
-        <p>This webhook is using the default template.</p>
-        <p className="text-sm text-default-500 mt-2">Enable custom template in webhook settings to customize it.</p>
+      <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg gap-4">
+        <Crown size={24} className="text-primary" />
+        <div className="text-center">
+          <p>This webhook is using the default template</p>
+          <p className="text-sm text-default-500 mt-2">Enable custom template in webhook settings to customize it</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardBody className="space-y-4">
-          <h3 className="text-lg font-semibold">Message Settings</h3>
-          <div className="flex items-center gap-4">
-            <Switch isSelected={template.use_embed} onValueChange={(value) => setTemplate({ ...template, use_embed: value })}>
-              Use Embed
-            </Switch>
-            <TemplateVariablesHelp />
+    <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <FileText size={20} className="text-primary" />
+          <div>
+            <h3 className="text-lg font-semibold">Template Editor</h3>
+            <p className="text-sm text-default-500">Customize your notification format</p>
           </div>
-          {!template.use_embed && (
-            <div className="flex items-start gap-2">
-              <Textarea label="Message Content" placeholder="Enter your message content" value={template.content || ""} onChange={(e) => setTemplate({ ...template, content: e.target.value })} />
-              <TemplateVariablesHelp />
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      {template.use_embed && (
-        <>
-          <Card>
-            <CardBody className="space-y-4">
-              <h3 className="text-lg font-semibold">Author Settings</h3>
-              <div className="flex items-center gap-2">
-                <Input label="Author Name" value={template.author_name || ""} onChange={(e) => setTemplate({ ...template, author_name: e.target.value })} placeholder="Enter author name" />
-                <TemplateVariablesHelp />
-              </div>
-              <div className="flex items-center gap-2">
-                <Input label="Author Icon URL" value={template.author_icon_url || ""} onChange={(e) => setTemplate({ ...template, author_icon_url: e.target.value })} placeholder="Enter author icon URL" />
-                <TemplateVariablesHelp />
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="space-y-4">
-              <h3 className="text-lg font-semibold">Embed Settings</h3>
-              <div className="flex items-center gap-2">
-                <Input label="Title" value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} />
-                <TemplateVariablesHelp />
-              </div>
-              <Input
-                label="Color"
-                type="color"
-                value={`#${template.color.toString(16).padStart(6, "0")}`}
-                onChange={(e) =>
-                  setTemplate({
-                    ...template,
-                    color: parseInt(e.target.value.slice(1), 16),
-                  })
-                }
-              />
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="space-y-4">
-              <h3 className="text-lg font-semibold">Footer Settings</h3>
-              <div className="flex items-center gap-2">
-                <Input label="Footer Text" value={template.footer_text || ""} onChange={(e) => setTemplate({ ...template, footer_text: e.target.value })} placeholder="Enter footer text" />
-                <TemplateVariablesHelp />
-              </div>
-              <div className="flex items-center gap-2">
-                <Input label="Footer Icon URL" value={template.footer_icon_url || ""} onChange={(e) => setTemplate({ ...template, footer_icon_url: e.target.value })} placeholder="Enter footer icon URL" />
-                <TemplateVariablesHelp />
-              </div>
-              <Switch isSelected={template.include_timestamp} onValueChange={(value) => setTemplate({ ...template, include_timestamp: value })}>
-                Include Timestamp
-              </Switch>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Embed Fields</h3>
-                <Button color="primary" variant="flat" startContent={<Plus size={20} />} onPress={addField}>
-                  Add Field
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {fields.map((field, index) => (
-                  <div key={index} className="flex gap-4 items-start border p-4 rounded-lg">
-                    <div className="flex-1 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Input label="Field Name" value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
-                        <TemplateVariablesHelp />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input label="Field Value" value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
-                        <TemplateVariablesHelp />
-                      </div>
-                      <Switch isSelected={field.inline} onValueChange={(value) => updateField(index, "inline", value)}>
-                        Inline
-                      </Switch>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Button isIconOnly variant="light" onPress={() => moveField(index, "up")} isDisabled={index === 0}>
-                        <Move className="rotate-180" size={20} />
-                      </Button>
-                      <Button isIconOnly variant="light" onPress={() => moveField(index, "down")} isDisabled={index === fields.length - 1}>
-                        <Move size={20} />
-                      </Button>
-                      <Button isIconOnly variant="light" color="danger" onPress={() => removeField(index)}>
-                        <Trash2 size={20} />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardBody>
-          </Card>
-        </>
-      )}
-
-      <div className="flex justify-end">
-        <Button color="primary" onPress={handleSave} isLoading={isSaving}>
-          Save Changes
-        </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Tooltip content={showPreview ? "Hide Preview" : "Show Preview"}>
+            <Button isIconOnly variant="flat" color={showPreview ? "primary" : "default"} onPress={() => setShowPreview(!showPreview)}>
+              <Eye size={18} />
+            </Button>
+          </Tooltip>
+          <TemplateVariablesHelp />
+        </div>
       </div>
-    </div>
+
+      {/* Main Content */}
+      <div className={`grid ${showPreview ? "grid-cols-2" : "grid-cols-1"} gap-6`}>
+        {/* Editor Section */}
+        <div className="space-y-6">
+          {/* Message Format */}
+          <Card>
+            <CardBody className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Switch isSelected={template.use_embed} onValueChange={(value) => setTemplate({ ...template, use_embed: value })}>
+                  Use Embed Format
+                </Switch>
+                <Chip color={template.use_embed ? "primary" : "default"} variant="flat">
+                  {template.use_embed ? "Rich Embed" : "Simple Message"}
+                </Chip>
+              </div>
+
+              {!template.use_embed && <Textarea label="Message Content" placeholder="Enter your message content..." value={template.content || ""} onChange={(e) => setTemplate({ ...template, content: e.target.value })} minRows={4} />}
+            </CardBody>
+          </Card>
+
+          {template.use_embed && (
+            <>
+              {/* Title and Color */}
+              <Card>
+                <CardBody className="space-y-4">
+                  <Input label="Embed Title" placeholder="Enter a title..." value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} startContent={<MessageSquare size={16} className="text-default-400" />} />
+                  <div className="flex items-center gap-4">
+                    <Input
+                      type="color"
+                      label="Accent Color"
+                      value={`#${template.color.toString(16).padStart(6, "0")}`}
+                      onChange={(e) =>
+                        setTemplate({
+                          ...template,
+                          color: parseInt(e.target.value.slice(1), 16),
+                        })
+                      }
+                    />
+                    <div className="w-10 h-10 rounded-lg shadow-inner" style={{ backgroundColor: `#${template.color.toString(16).padStart(6, "0")}` }} />
+                  </div>
+                </CardBody>
+              </Card>
+
+              {/* Author Section */}
+              <Card>
+                <CardBody className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Bot size={16} className="text-primary" />
+                    Author Settings
+                  </h3>
+                  <Input label="Author Name" placeholder="Enter author name..." value={template.author_name || ""} onChange={(e) => setTemplate({ ...template, author_name: e.target.value })} />
+                  <Input label="Author Icon URL" placeholder="Enter icon URL..." value={template.author_icon_url || ""} onChange={(e) => setTemplate({ ...template, author_icon_url: e.target.value })} startContent={<ImageIcon size={16} className="text-default-400" />} />
+                </CardBody>
+              </Card>
+
+              {/* Embed Fields */}
+              <Card>
+                <CardBody className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-medium">Embed Fields</h3>
+                    <Button size="sm" color="primary" variant="flat" startContent={<Plus size={16} />} onPress={addField}>
+                      Add Field
+                    </Button>
+                  </div>
+
+                  <AnimatePresence mode="popLayout">
+                    {fields.map((field, index) => (
+                      <motion.div key={index} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="border rounded-lg p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-default-500">Field {index + 1}</span>
+                            <Switch size="sm" isSelected={field.inline} onValueChange={(value) => updateField(index, "inline", value)}>
+                              Inline
+                            </Switch>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button isIconOnly size="sm" variant="light" onPress={() => moveField(index, "up")} isDisabled={index === 0}>
+                              <MoveUp size={16} />
+                            </Button>
+                            <Button isIconOnly size="sm" variant="light" onPress={() => moveField(index, "down")} isDisabled={index === fields.length - 1}>
+                              <MoveDown size={16} />
+                            </Button>
+                            <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => removeField(index)}>
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <Input size="sm" label="Name" placeholder="Field name..." value={field.name} onChange={(e) => updateField(index, "name", e.target.value)} />
+                          <Input size="sm" label="Value" placeholder="Field value..." value={field.value} onChange={(e) => updateField(index, "value", e.target.value)} />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </CardBody>
+              </Card>
+
+              {/* Footer Settings */}
+              <Card>
+                <CardBody className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Calendar size={16} className="text-primary" />
+                    Footer Settings
+                  </h3>
+                  <Input label="Footer Text" placeholder="Enter footer text..." value={template.footer_text || ""} onChange={(e) => setTemplate({ ...template, footer_text: e.target.value })} />
+                  <Input label="Footer Icon URL" placeholder="Enter icon URL..." value={template.footer_icon_url || ""} onChange={(e) => setTemplate({ ...template, footer_icon_url: e.target.value })} startContent={<ImageIcon size={16} className="text-default-400" />} />
+                  <Switch isSelected={template.include_timestamp} onValueChange={(value) => setTemplate({ ...template, include_timestamp: value })}>
+                    Include Timestamp
+                  </Switch>
+                </CardBody>
+              </Card>
+            </>
+          )}
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <Button color="primary" size="lg" onPress={handleSave} isLoading={isSaving} className="w-full sm:w-auto">
+              Save Changes
+            </Button>
+          </div>
+        </div>
+
+        {/* Preview Section */}
+        {showPreview && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare size={16} className="text-primary" />
+              <h3 className="text-sm font-medium">Live Preview</h3>
+            </div>
+            <div className="sticky top-4">
+              {template.use_embed ? (
+                <PreviewEmbed template={template} fields={fields} />
+              ) : (
+                <div className="border rounded-lg p-4 bg-[#313338]">
+                  <p className="text-default-200 whitespace-pre-wrap">{template.content || "No content set"}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 }
