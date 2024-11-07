@@ -21,7 +21,10 @@ pub async fn get_api_key(app_handle: AppHandle) -> Result<Option<String>, String
 pub async fn get_update_interval(app_handle: AppHandle) -> Result<i64, String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    get_update_interval_db(&conn).map_err(|e| e.to_string())
+    println!("Fetching update interval from database");
+    let interval = get_update_interval_db(&conn).map_err(|e| e.to_string())?;
+    println!("Retrieved interval: {}", interval);
+    Ok(interval)
 }
 
 #[tauri::command]
@@ -35,7 +38,10 @@ pub async fn set_api_key(app_handle: AppHandle, api_key: String) -> Result<(), S
 pub async fn set_update_interval(app_handle: AppHandle, interval: i64) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    set_update_interval_db(&conn, interval).map_err(|e| e.to_string())
+    println!("Setting update interval to: {}", interval);
+    set_update_interval_db(&conn, interval).map_err(|e| e.to_string())?;
+    println!("Successfully set update interval");
+    Ok(())
 }
 
 #[tauri::command]
