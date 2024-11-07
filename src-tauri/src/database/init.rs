@@ -20,7 +20,7 @@ pub fn ensure_database_exists(db_path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn initialize_database(connection: &Connection) -> Result<()> {
+pub fn initialize_database(connection: &mut Connection) -> Result<()> {
     // Enable foreign key support
     connection.execute("PRAGMA foreign_keys = ON", [])?;
 

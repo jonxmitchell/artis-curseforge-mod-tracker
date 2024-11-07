@@ -13,13 +13,13 @@ use rusqlite::Connection;
 
 fn main() {
     tauri::Builder::default()
-        .setup(|app| {
-            let db_path = get_database_path(&app.handle());
-            ensure_database_exists(&db_path)?;
-            let conn = Connection::open(&db_path)?;
-            initialize_database(&conn)?;
-            Ok(())
-        })
+    .setup(|app| {
+        let db_path = get_database_path(&app.handle());
+        ensure_database_exists(&db_path)?;
+        let mut conn = Connection::open(&db_path)?;
+        initialize_database(&mut conn)?;
+        Ok(())
+    })
         .invoke_handler(tauri::generate_handler![
             // Mod commands
             add_mod,
