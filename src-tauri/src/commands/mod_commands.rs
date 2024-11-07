@@ -35,11 +35,11 @@ pub struct CurseForgeModData {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModLinks {
     #[serde(rename = "websiteUrl")]
-    pub website_url: String,
+    pub website_url: Option<String>,
     #[serde(rename = "wikiUrl")]
-    pub wiki_url: String,
+    pub wiki_url: Option<String>,
     #[serde(rename = "issuesUrl")]
-    pub issues_url: String,
+    pub issues_url: Option<String>,
     #[serde(rename = "sourceUrl")]
     pub source_url: Option<String>,
 }
@@ -169,7 +169,7 @@ pub async fn add_mod(
         .map_err(|e| e.to_string())?;
 
     // Get page URL from the response
-    let page_url = curse_data.data.links.website_url;
+    let page_url = curse_data.data.links.website_url.unwrap_or_default();
 
     // Fetch game name
     let game_name = get_game_name(&client, curse_data.data.game_id, &api_key).await?;
