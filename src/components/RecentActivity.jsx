@@ -5,6 +5,38 @@ import { Card, CardHeader, CardBody, Button, Tooltip, ScrollShadow } from "@next
 import { Clock, Package2, Trash2, Plus, AlertTriangle, ChevronDown } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { listen } from "@tauri-apps/api/event";
+import { motion, AnimatePresence } from "framer-motion";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      when: "beforeChildren",
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 30,
+    },
+  },
+  exit: {
+    opacity: 0,
+    x: 20,
+    transition: {
+      duration: 0.2,
+    },
+  },
+};
 
 const ActivityIcon = ({ type }) => {
   const iconMap = {
@@ -23,9 +55,9 @@ const ActivityIcon = ({ type }) => {
   const { icon: Icon, color } = iconMap[type] || { icon: Clock, color: "default" };
 
   return (
-    <div className={`p-2 rounded-xl bg-${color}/10`}>
+    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} className={`p-2 rounded-xl bg-${color}/10`}>
       <Icon size={18} className={`text-${color}`} />
-    </div>
+    </motion.div>
   );
 };
 
@@ -40,6 +72,43 @@ const formatTimeAgo = (timestamp) => {
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
   return activityTime.toLocaleDateString();
 };
+
+const LoadingPlaceholder = () => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 p-4">
+    {[...Array(3)].map((_, i) => (
+      <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="flex items-start gap-3 animate-pulse">
+        <div className="w-8 h-8 rounded-xl bg-default-100" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-default-100 rounded w-3/4" />
+          <div className="h-3 bg-default-100 rounded w-1/2" />
+        </div>
+      </motion.div>
+    ))}
+  </motion.div>
+);
+
+const EmptyState = () => (
+  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", duration: 0.5 }} className="flex flex-col items-center justify-center p-8 h-full">
+    <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }} className="mb-2">
+      <Clock className="text-default-400" size={24} />
+    </motion.div>
+    <p className="text-center text-default-500">No recent activity</p>
+  </motion.div>
+);
+
+const ErrorState = ({ error, onRetry }) => (
+  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center p-8 h-full">
+    <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }} className="mb-2">
+      <AlertTriangle className="text-danger" size={24} />
+    </motion.div>
+    <p className="text-center text-danger">{error}</p>
+    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+      <Button color="primary" variant="flat" onPress={onRetry} className="mt-4">
+        Try Again
+      </Button>
+    </motion.div>
+  </motion.div>
+);
 
 export default function RecentActivity() {
   const [activities, setActivities] = useState([]);
@@ -125,92 +194,74 @@ export default function RecentActivity() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <Card className="bg-content1/60 backdrop-blur-md h-full">
-        <CardHeader className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Clock size={24} className="text-primary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold">Recent Activity</h2>
-              <p className="text-small text-default-500">Loading...</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardBody>
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-start gap-3 animate-pulse">
-                <div className="w-8 h-8 rounded-xl bg-default-100" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-default-100 rounded w-3/4" />
-                  <div className="h-3 bg-default-100 rounded w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
-    );
-  }
-
   return (
     <Card className="bg-content backdrop-blur-md h-full">
       <CardHeader className="flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-primary/10">
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
+          <motion.div whileHover={{ scale: 1.1, rotate: 360 }} transition={{ duration: 0.5 }} className="p-2 rounded-xl bg-primary/10">
             <Clock size={24} className="text-primary" />
-          </div>
+          </motion.div>
           <div>
             <h2 className="text-lg font-bold">Recent Activity</h2>
             <p className="text-small text-default-500">System updates and changes</p>
           </div>
-        </div>
+        </motion.div>
         {activities.length > 0 && (
-          <div className={`p-2 rounded-xl bg-danger/10`}>
+          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-xl bg-danger/10">
             <Trash2 size={20} className="text-danger cursor-pointer" onClick={clearHistory} />
-          </div>
+          </motion.div>
         )}
       </CardHeader>
       <CardBody className="p-0 overflow-hidden">
         {error ? (
-          <div className="flex flex-col items-center justify-center p-8 h-full">
-            <AlertTriangle className="text-danger mb-2" size={24} />
-            <p className="text-center text-danger">{error}</p>
-          </div>
+          <ErrorState error={error} onRetry={loadActivities} />
+        ) : isLoading ? (
+          <LoadingPlaceholder />
         ) : activities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 h-full">
-            <Clock className="text-default-400 mb-2" size={24} />
-            <p className="text-center text-default-500">No recent activity</p>
-          </div>
+          <EmptyState />
         ) : (
           <ScrollShadow hideScrollBar className="h-full">
             <div className="px-4 py-4">
-              <div className="space-y-4">
-                {activities.slice(0, isExpanded ? undefined : 25).map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 group">
-                    <ActivityIcon type={activity.activity_type} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">{activity.description}</p>
-                      {activity.mod_name && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Package2 className="text-default-400" size={12} />
-                          <span className="text-xs text-default-400 truncate">{activity.mod_name}</span>
-                        </div>
-                      )}
-                    </div>
-                    <Tooltip content={new Date(activity.timestamp).toLocaleString()}>
-                      <span className="text-xs text-default-400 whitespace-nowrap">{activity.timeAgo}</span>
-                    </Tooltip>
-                  </div>
-                ))}
-              </div>
+              <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-4">
+                <AnimatePresence mode="popLayout">
+                  {activities.slice(0, isExpanded ? undefined : 25).map((activity) => (
+                    <motion.div key={activity.id} variants={itemVariants} initial="hidden" animate="visible" exit="exit" layout className="flex items-start gap-3 group">
+                      <ActivityIcon type={activity.activity_type} />
+                      <motion.div className="flex-1 min-w-0" whileHover={{ x: 5 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+                        <p className="text-sm">{activity.description}</p>
+                        {activity.mod_name && (
+                          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-1 mt-1">
+                            <Package2 className="text-default-400" size={12} />
+                            <span className="text-xs text-default-400 truncate">{activity.mod_name}</span>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                      <Tooltip content={new Date(activity.timestamp).toLocaleString()}>
+                        <motion.span whileHover={{ scale: 1.1 }} className="text-xs text-default-400 whitespace-nowrap">
+                          {activity.timeAgo}
+                        </motion.span>
+                      </Tooltip>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
               {activities.length > 8 && (
-                <Button variant="flat" color="primary" size="sm" className="w-full mt-4" endContent={<ChevronDown size={18} className={`transform transition-transform ${isExpanded ? "rotate-180" : ""}`} />} onPress={() => setIsExpanded(!isExpanded)}>
-                  {isExpanded ? "Show Less" : "Show More"}
-                </Button>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                  <Button
+                    variant="flat"
+                    color="primary"
+                    size="sm"
+                    className="w-full mt-4"
+                    endContent={
+                      <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.3 }}>
+                        <ChevronDown size={18} />
+                      </motion.div>
+                    }
+                    onPress={() => setIsExpanded(!isExpanded)}
+                  >
+                    {isExpanded ? "Show Less" : "Show More"}
+                  </Button>
+                </motion.div>
               )}
             </div>
           </ScrollShadow>
