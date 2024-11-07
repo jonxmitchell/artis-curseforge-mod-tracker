@@ -5,13 +5,12 @@ import { Card, CardBody, Tooltip } from "@nextui-org/react";
 import { Clock, RefreshCw } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { listen } from "@tauri-apps/api/event";
-import { useModUpdateChecker } from "@/hooks/useModUpdateChecker";
 
 export default function UpdateCountdown() {
   const [timeLeft, setTimeLeft] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updateInterval, setUpdateInterval] = useState(30);
-  const { isChecking, checkForUpdates } = useModUpdateChecker();
+  const [isChecking, setIsChecking] = useState(false);
   const unlistenRef = useRef(null);
   const timeoutRef = useRef(null);
   const intervalRef = useRef(null);
@@ -31,47 +30,6 @@ export default function UpdateCountdown() {
     }
   };
 
-  useEffect(() => {
-    let unlisten;
-
-    const setup = async () => {
-      try {
-        // Listen for interval changes
-        unlisten = await listen("update_interval_changed", async (event) => {
-          const newInterval = event.payload.interval;
-          console.log("Interval change event received:", newInterval);
-          setUpdateInterval(newInterval);
-          updateIntervalRef.current = newInterval;
-          await resetCountdown(newInterval);
-        });
-
-        // Initial setup
-        await initializeCountdown();
-
-        unlistenRef.current = unlisten;
-      } catch (error) {
-        console.error("Failed to setup countdown:", error);
-      }
-    };
-
-    setup();
-
-    return () => {
-      if (unlistenRef.current) {
-        unlistenRef.current();
-        unlistenRef.current = null;
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, []);
-
   const resetCountdown = async (interval) => {
     console.log("Resetting countdown with interval:", interval);
     const now = new Date();
@@ -87,6 +45,45 @@ export default function UpdateCountdown() {
     intervalRef.current = setInterval(updateCountdown, 1000);
   };
 
+  useEffect(() => {
+    let updateCheckUnlisten;
+    let intervalChangeUnlisten;
+
+    const setup = async () => {
+      try {
+        // Listen for manual update checks
+        updateCheckUnlisten = await listen("update_check_completed", async (event) => {
+          console.log("Manual update check completed event received:", event);
+          const interval = event.payload.interval;
+          await resetCountdown(interval);
+        });
+
+        // Listen for interval changes
+        intervalChangeUnlisten = await listen("update_interval_changed", async (event) => {
+          const newInterval = event.payload.interval;
+          console.log("Interval change event received:", newInterval);
+          setUpdateInterval(newInterval);
+          updateIntervalRef.current = newInterval;
+          await resetCountdown(newInterval);
+        });
+
+        // Initial setup
+        await initializeCountdown();
+      } catch (error) {
+        console.error("Failed to setup countdown:", error);
+      }
+    };
+
+    setup();
+
+    return () => {
+      if (updateCheckUnlisten) updateCheckUnlisten();
+      if (intervalChangeUnlisten) intervalChangeUnlisten();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
   const initializeCountdown = async () => {
     try {
       const interval = await getCurrentInterval();
@@ -101,10 +98,7 @@ export default function UpdateCountdown() {
         localStorage.setItem("currentInterval", interval.toString());
       }
 
-      // Start the countdown update interval
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = setInterval(updateCountdown, 1000);
 
       updateCountdown();
@@ -115,7 +109,7 @@ export default function UpdateCountdown() {
     }
   };
 
-  const updateCountdown = async () => {
+  const updateCountdown = () => {
     try {
       const nextCheck = localStorage.getItem("nextCheckTime");
       if (!nextCheck) return;
@@ -125,25 +119,16 @@ export default function UpdateCountdown() {
       const diff = next - now;
 
       if (diff <= 0) {
-        // Clear existing timers before starting new ones
+        // Time for automatic check
+        setIsChecking(true);
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
 
-        // Get the current interval from the database before proceeding
-        const currentInterval = await getCurrentInterval();
-        console.log("Performing check with interval:", currentInterval);
-
-        await checkForUpdates(currentInterval);
-
-        // Set new next check time using current interval
-        const newNext = new Date(now.getTime() + currentInterval * 60 * 1000);
-        localStorage.setItem("nextCheckTime", newNext.toISOString());
-        localStorage.setItem("currentInterval", currentInterval.toString());
-
-        // Restart the interval
-        intervalRef.current = setInterval(updateCountdown, 1000);
+        // Reset countdown with current interval
+        resetCountdown(updateIntervalRef.current);
+        setIsChecking(false);
       }
 
       // Update displayed time

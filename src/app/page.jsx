@@ -4,16 +4,16 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardBody, Button, Tooltip, CircularProgress } from "@nextui-org/react";
 import { motion, AnimatePresence } from "framer-motion";
 import UpdateCountdown from "@/components/UpdateCountdown";
-import { Package2, Webhook, Clock, Settings as SettingsIcon, Gamepad2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Package2, Webhook, Clock, Settings as SettingsIcon, Gamepad2, AlertTriangle } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { listen } from "@tauri-apps/api/event";
 import Settings from "@/components/Settings";
 import { useRouter } from "next/navigation";
 import AddModModal from "@/components/AddModModal";
-import { useModUpdateChecker } from "@/hooks/useModUpdateChecker";
 import RecentActivity from "@/components/RecentActivity";
 import TrackedMods from "@/components/TrackedMods";
 import QuickStartGuide from "@/components/QuickStartGuide";
+import UpdateCheckButton from "@/components/UpdateCheckButton";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -49,7 +49,6 @@ export default function DashboardPage() {
   const [updateInterval, setUpdateInterval] = useState(30);
   const [lastChecked, setLastChecked] = useState(null);
   const [showQuickStart, setShowQuickStart] = useState(true);
-  const { isChecking, error: updateError, checkForUpdates } = useModUpdateChecker();
   const router = useRouter();
 
   useEffect(() => {
@@ -89,11 +88,9 @@ export default function DashboardPage() {
     setMods((prevMods) => [...prevMods, newMod]);
   };
 
-  const handleManualCheck = async () => {
-    await checkForUpdates(updateInterval, (latestMods) => {
-      setMods(latestMods);
-      setLastChecked(new Date());
-    });
+  const handleUpdateCheck = (latestMods, checkTime) => {
+    setMods(latestMods);
+    setLastChecked(checkTime);
   };
 
   const stats = useMemo(
@@ -116,13 +113,13 @@ export default function DashboardPage() {
     );
   }
 
-  if (error || updateError) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] bg-background/60 backdrop-blur-sm">
         <motion.div className="flex flex-col items-center gap-4" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
           <AlertTriangle className="h-16 w-16 text-danger" />
-          <p className="text-xl font-medium text-danger">{error || updateError}</p>
-          <Button color="primary" variant="shadow" onPress={loadData} startContent={<RefreshCw size={18} />}>
+          <p className="text-xl font-medium text-danger">{error}</p>
+          <Button color="primary" variant="shadow" onPress={loadData}>
             Retry
           </Button>
         </motion.div>
@@ -148,9 +145,7 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="flex gap-3">
-              <Button className="group" color="primary" variant="flat" startContent={<RefreshCw size={18} className={`${isChecking ? "animate-spin" : "group-hover:rotate-180"} transition-transform duration-500`} />} onPress={handleManualCheck} isLoading={isChecking} isDisabled={isChecking || mods.length === 0}>
-                Check Updates
-              </Button>
+              <UpdateCheckButton onSuccess={handleUpdateCheck} disabled={mods.length === 0} />
               <Button color="primary" variant="solid" startContent={<SettingsIcon size={18} />} onPress={() => setIsSettingsOpen(true)}>
                 Settings
               </Button>
