@@ -1,3 +1,4 @@
+// src/components/WebhookCard.jsx
 "use client";
 
 import { Card, CardBody, Button, Switch, Tooltip } from "@nextui-org/react";
@@ -84,8 +85,8 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
                 <Webhook size={20} className={isEnabled ? "text-primary" : "text-default-400"} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold truncate">{webhook.name}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-semibold">{webhook.name}</h3>
                   {webhook.username && (
                     <div className="flex items-center gap-1 px-2 py-0.5 bg-default-100 rounded-full">
                       <Bot size={14} className="text-default-500" />
@@ -116,9 +117,9 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
             </div>
           )}
 
-          {/* URL Preview */}
+          {/* URL Preview - Modified for better wrapping */}
           <div className="px-3 py-2 bg-default-50 rounded-lg">
-            <p className="text-small text-default-500 truncate font-mono">{webhook.url}</p>
+            <p className="text-small text-default-500 font-mono break-all">{webhook.url}</p>
           </div>
 
           {/* Actions Section */}
