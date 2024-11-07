@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScrollShadow, Button } from "@nextui-org/react";
-import { Settings, LayoutDashboard, Package2, Webhook, TextCursor, ChevronRight, ChevronLeft, Github } from "lucide-react";
+import { Settings, LayoutDashboard, Package2, Webhook, TextCursor, ChevronLeft, Github, Coffee } from "lucide-react";
 import { useState, useEffect } from "react";
 import SettingsModal from "./Settings";
 import { open } from "@tauri-apps/api/shell";
@@ -69,19 +69,19 @@ export default function Sidebar() {
     expanded: {
       width: "16rem",
       transition: {
-        duration: 0.3,
         type: "spring",
-        stiffness: 300,
-        damping: 26,
+        stiffness: 200,
+        damping: 25,
+        mass: 1,
       },
     },
     collapsed: {
       width: "5rem",
       transition: {
-        duration: 0.3,
         type: "spring",
-        stiffness: 300,
-        damping: 26,
+        stiffness: 200,
+        damping: 25,
+        mass: 1,
       },
     },
   };
@@ -91,12 +91,14 @@ export default function Sidebar() {
       rotate: 0,
       transition: {
         duration: 0.3,
+        ease: "anticipate",
       },
     },
     collapsed: {
       rotate: 180,
       transition: {
         duration: 0.3,
+        ease: "anticipate",
       },
     },
   };
@@ -107,7 +109,7 @@ export default function Sidebar() {
       x: 0,
       transition: {
         duration: 0.2,
-        delay: 0.1,
+        ease: "easeOut",
       },
     },
     hidden: {
@@ -115,6 +117,7 @@ export default function Sidebar() {
       x: -20,
       transition: {
         duration: 0.2,
+        ease: "easeIn",
       },
     },
   };
@@ -158,8 +161,8 @@ export default function Sidebar() {
                   className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
                     ${isActive ? "bg-primary/10 text-primary" : "hover:bg-default-100 text-default-600 hover:text-default-900"}
                   `}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+                  whileTap={{ scale: 0.98, transition: { duration: 0.2 } }}
                 >
                   <motion.div className={`shrink-0 ${isActive ? "text-primary" : "text-default-500 group-hover:text-default-700"}`} whileHover={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 0.5 }}>
                     {item.icon}
@@ -175,7 +178,6 @@ export default function Sidebar() {
                     <motion.div
                       layoutId="activeIndicator"
                       className="w-1.5 h-1.5 rounded-full bg-primary"
-                      initial={false}
                       transition={{
                         type: "spring",
                         stiffness: 300,
@@ -191,17 +193,15 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="p-4 border-t border-divider space-y-2">
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button variant="soft" className="w-full justify-start" startContent={<Settings size={20} className="text-default-500" />} onPress={() => setIsSettingsOpen(true)}>
-              <AnimatePresence mode="wait">
-                {!isCollapsed && (
-                  <motion.span className="font-medium" initial="hidden" animate="visible" exit="hidden" variants={contentVariants}>
-                    Settings
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Button>
-          </motion.div>
+          <AnimatePresence mode="wait">
+            {!isCollapsed && (
+              <motion.div initial="hidden" animate="visible" exit="hidden" variants={contentVariants} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button variant="light" className="w-full justify-start" startContent={<Settings size={20} className="text-default-500" />} onPress={() => setIsSettingsOpen(true)}>
+                  <span className="font-medium">Settings</span>
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <AnimatePresence mode="wait">
             {!isCollapsed && (
@@ -212,12 +212,18 @@ export default function Sidebar() {
                   </Button>
                 </motion.div>
 
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-2">
+                  <Button variant="light" className="w-full justify-start gap-3" startContent={<Coffee size={20} className="text-primary" />} onPress={() => handleExternalLink("https://ko-fi.com/artiartificial")}>
+                    <span className="font-medium text-primary">Support on Ko-fi</span>
+                  </Button>
+                </motion.div>
+
                 <div className="pt-2 text-center">
                   <p className="text-xs text-default-500">
                     Developed by{" "}
-                    <Button as="span" variant="light" className="p-0 h-auto min-w-0 text-primary hover:text-primary-500 transition-colors" onPress={() => handleExternalLink("https://discord.gg/sGgerkNSWQ")}>
+                    <a href="https://discord.gg/sGgerkNSWQ" className="text-primary">
                       arti.artificial
-                    </Button>
+                    </a>
                   </p>
                 </div>
               </motion.div>
