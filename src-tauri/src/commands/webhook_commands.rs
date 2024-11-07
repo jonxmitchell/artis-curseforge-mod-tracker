@@ -18,6 +18,7 @@ struct ModUpdateData {
     new_release_date: String,
     old_release_date: String,
     latest_file_name: String,
+    logo_url: Option<String>,
 }
 
 fn get_ordinal_suffix(day: u32) -> &'static str {
@@ -65,6 +66,8 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
         ("{here}", "@here".to_string()),
         ("{lastestModFileName}", data.latest_file_name.clone()),
         ("{modAuthorName}", data.mod_author.clone()),
+        // Add logo URL to replacements
+        ("{logoUrl}", data.logo_url.clone().unwrap_or_default()),
     ];
 
     for (key, value) in replacements {
@@ -103,8 +106,8 @@ pub fn add_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<Webhook, S
     let db_path = get_database_path(&app_handle);
     ensure_database_exists(&db_path).map_err(|e| e.to_string())?;
     
-    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;  // Changed to mut
-    let webhook_id = webhooks::insert_webhook(&mut conn, &webhook).map_err(|e| e.to_string())?;  // Added mut
+    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    let webhook_id = webhooks::insert_webhook(&mut conn, &webhook).map_err(|e| e.to_string())?;
 
     // Log activity for webhook addition
     let activity = Activity {
@@ -245,6 +248,7 @@ pub async fn send_update_notification(
     old_release_date: String,
     latest_file_name: String,
     mod_id: i64,
+    logo_url: Option<String>,
 ) -> Result<bool, String> {
     let client = Client::new();
     
@@ -256,10 +260,11 @@ pub async fn send_update_notification(
     let update_data = ModUpdateData {
         mod_id,
         mod_name: mod_name.clone(),
-        mod_author,
+        mod_author: mod_author.clone(),
         new_release_date: format_date(&new_release_date),
         old_release_date: format_date(&old_release_date),
-        latest_file_name,
+        latest_file_name: latest_file_name.clone(),
+        logo_url: logo_url.clone(),
     };
 
     let mut embed = json!({
@@ -290,6 +295,15 @@ pub async fn send_update_notification(
                 }
             }
             embed["author"] = author;
+        }
+    }
+
+    // Add thumbnail if enabled and URL is available
+    if template.use_thumbnail {
+        if let Some(url) = logo_url {
+            embed["thumbnail"] = json!({
+                "url": url
+            });
         }
     }
 

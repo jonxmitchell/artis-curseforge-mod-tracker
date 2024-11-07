@@ -15,13 +15,14 @@ pub struct WebhookTemplate {
     pub footer_text: Option<String>,
     pub footer_icon_url: Option<String>,
     pub include_timestamp: bool,
+    pub use_thumbnail: bool,
     pub embed_fields: String,
 }
 
 pub fn get_webhook_template(conn: &Connection, webhook_id: i64) -> Result<WebhookTemplate> {
     let query = "SELECT id, is_default, webhook_id, title, color, content, use_embed,
                        author_name, author_icon_url, footer_text, footer_icon_url,
-                       include_timestamp, embed_fields
+                       include_timestamp, use_thumbnail, embed_fields
                 FROM webhook_templates
                 WHERE ";
 
@@ -54,7 +55,8 @@ pub fn get_webhook_template(conn: &Connection, webhook_id: i64) -> Result<Webhoo
                 footer_text: row.get(9)?,
                 footer_icon_url: row.get(10)?,
                 include_timestamp: row.get(11)?,
-                embed_fields: row.get(12)?,
+                use_thumbnail: row.get(12)?,
+                embed_fields: row.get(13)?,
             })
         },
     ).or_else(|_| {
@@ -62,7 +64,7 @@ pub fn get_webhook_template(conn: &Connection, webhook_id: i64) -> Result<Webhoo
         conn.query_row(
             "SELECT id, is_default, webhook_id, title, color, content, use_embed,
                     author_name, author_icon_url, footer_text, footer_icon_url,
-                    include_timestamp, embed_fields
+                    include_timestamp, use_thumbnail, embed_fields
              FROM webhook_templates
              WHERE is_default = 1",
             [],
@@ -80,7 +82,8 @@ pub fn get_webhook_template(conn: &Connection, webhook_id: i64) -> Result<Webhoo
                     footer_text: row.get(9)?,
                     footer_icon_url: row.get(10)?,
                     include_timestamp: row.get(11)?,
-                    embed_fields: row.get(12)?,
+                    use_thumbnail: row.get(12)?,
+                    embed_fields: row.get(13)?,
                 })
             },
         )
@@ -96,7 +99,7 @@ pub fn update_webhook_template(conn: &mut Connection, template: &WebhookTemplate
              SET title = ?1, color = ?2, content = ?3, use_embed = ?4,
                  author_name = ?5, author_icon_url = ?6,
                  footer_text = ?7, footer_icon_url = ?8,
-                 include_timestamp = ?9, embed_fields = ?10
+                 include_timestamp = ?9, use_thumbnail = ?10, embed_fields = ?11
              WHERE is_default = 1",
             params![
                 template.title,
@@ -108,6 +111,7 @@ pub fn update_webhook_template(conn: &mut Connection, template: &WebhookTemplate
                 template.footer_text,
                 template.footer_icon_url,
                 template.include_timestamp,
+                template.use_thumbnail,
                 template.embed_fields,
             ],
         )?;
@@ -117,13 +121,13 @@ pub fn update_webhook_template(conn: &mut Connection, template: &WebhookTemplate
                 webhook_id, title, color, content, use_embed,
                 author_name, author_icon_url,
                 footer_text, footer_icon_url,
-                include_timestamp, embed_fields
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                include_timestamp, use_thumbnail, embed_fields
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
              ON CONFLICT(webhook_id) DO UPDATE SET
              title = ?2, color = ?3, content = ?4, use_embed = ?5,
              author_name = ?6, author_icon_url = ?7,
              footer_text = ?8, footer_icon_url = ?9,
-             include_timestamp = ?10, embed_fields = ?11",
+             include_timestamp = ?10, use_thumbnail = ?11, embed_fields = ?12",
             params![
                 template.webhook_id,
                 template.title,
@@ -135,6 +139,7 @@ pub fn update_webhook_template(conn: &mut Connection, template: &WebhookTemplate
                 template.footer_text,
                 template.footer_icon_url,
                 template.include_timestamp,
+                template.use_thumbnail,
                 template.embed_fields,
             ],
         )?;

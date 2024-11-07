@@ -28,6 +28,19 @@ pub struct CurseForgeModData {
     latest_files: Vec<ModFile>,
     #[serde(rename = "gameId")]
     game_id: i64,
+    logo: Option<ModLogo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModLogo {
+    id: i64,
+    #[serde(rename = "modId")]
+    mod_id: i64,
+    title: String,
+    description: String,
+    #[serde(rename = "thumbnailUrl")]
+    thumbnail_url: String,
+    url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,6 +63,7 @@ pub struct ModUpdateInfo {
     pub new_update_time: String,
     pub mod_author: String,
     pub latest_file_name: String,
+    pub logo_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -232,6 +246,9 @@ pub async fn check_mod_update(
             .map(|author| author.name.clone())
             .unwrap_or_else(|| "Unknown Author".to_string());
 
+        // Get logo URL if available
+        let logo_url = curse_data.data.logo.map(|logo| logo.url);
+
         // Always log the mod update activity
         let activity = Activity {
             id: None,
@@ -245,6 +262,7 @@ pub async fn check_mod_update(
                 "new_version_date": new_date,
                 "author": author_name.clone(),
                 "latest_file": latest_file.file_name.clone(),
+                "logo_url": logo_url,
             }).to_string()),
         };
         add_activity(Some(&app_handle), &conn, &activity)
@@ -257,6 +275,7 @@ pub async fn check_mod_update(
             new_update_time: new_date,
             mod_author: author_name,
             latest_file_name: latest_file.file_name.clone(),
+            logo_url,
         }))
     } else {
         Ok(None)

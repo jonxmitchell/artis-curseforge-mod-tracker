@@ -90,6 +90,7 @@ export function useModUpdateChecker() {
                     oldReleaseDate: updateInfo.old_update_time,
                     latestFileName: updateInfo.latest_file_name,
                     modId: updateInfo.mod_id,
+                    logoUrl: updateInfo.logo_url, // Pass the logo URL to the notification
                   });
                   console.log("Notification result:", result);
                 } catch (error) {

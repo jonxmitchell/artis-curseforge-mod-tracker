@@ -92,6 +92,7 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
             footer_text TEXT,
             footer_icon_url TEXT,
             include_timestamp BOOLEAN NOT NULL DEFAULT 1,
+            use_thumbnail BOOLEAN NOT NULL DEFAULT 0,
             embed_fields TEXT NOT NULL DEFAULT '[
                 {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
                 {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},
@@ -118,11 +119,12 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
                 is_default, title, color, use_embed, 
                 author_name, author_icon_url,
                 footer_text, footer_icon_url, include_timestamp,
-                embed_fields
+                use_thumbnail, embed_fields
             ) VALUES (
                 1, '🔄 Mod Update Available!', 5814783, 1,
                 'Mod Tracker', NULL,
                 'Powered by Artis Mod Tracker', NULL, 1,
+                0,
                 '[
                     {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
                     {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},

@@ -105,6 +105,7 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
           footer_text: "",
           footer_icon_url: "",
           include_timestamp: true,
+          use_thumbnail: false,
           embed_fields: JSON.stringify([
             { name: "Mod Name", value: "{modName}", inline: true },
             { name: "Author", value: "{modAuthorName}", inline: true },
@@ -267,6 +268,29 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
                       </CardBody>
                     </Card>
 
+                    {/* Thumbnail Settings */}
+                    <Card>
+                      <CardBody className="space-y-4">
+                        <h3 className="text-sm font-medium flex items-center gap-2">
+                          <ImageIcon size={16} className="text-primary" />
+                          Thumbnail Settings
+                        </h3>
+                        <div className="flex justify-between items-center">
+                          <div className="space-y-1">
+                            <Switch isSelected={template.use_thumbnail} onValueChange={(value) => setTemplate({ ...template, use_thumbnail: value })}>
+                              Show Mod Icon Thumbnail
+                            </Switch>
+                            <p className="text-xs text-default-500">Displays the mod's icon image in the embed</p>
+                          </div>
+                          {template.use_thumbnail && (
+                            <div className="w-16 h-16 rounded-lg bg-default-100 flex items-center justify-center">
+                              <ImageIcon size={24} className="text-default-400" />
+                            </div>
+                          )}
+                        </div>
+                      </CardBody>
+                    </Card>
+
                     {/* Author Section */}
                     <Card>
                       <CardBody className="space-y-4">
@@ -340,8 +364,8 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
 
                 {/* Save Button */}
                 <div className="flex justify-end">
-                  <Button color="primary" size="lg" onPress={handleSave} isLoading={isSaving} className="w-full sm:w-auto">
-                    Save Changes
+                  <Button color="primary" size="lg" onPress={handleSave} isLoading={isSaving} className="w-full sm:w-auto" startContent={!isSaving && <RefreshCw size={18} />}>
+                    {isSaving ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
               </div>
