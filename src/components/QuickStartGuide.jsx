@@ -1,9 +1,21 @@
 import { motion } from "framer-motion";
 import { Card, CardHeader, CardBody, Button } from "@nextui-org/react";
 import { Info, X } from "lucide-react";
+import { invoke } from "@tauri-apps/api/tauri";
 
 export default function QuickStartGuide({ onDismiss }) {
   const steps = ["Add your CurseForge API key in Settings", 'Go to the Mods page and click "Add Mod"', "Enter the CurseForge mod ID", "Set up Discord webhooks to receive notifications"];
+
+  const handleDismiss = async () => {
+    try {
+      // Update the database to set show_quick_start to false
+      await invoke("set_show_quick_start", { show: false });
+      // Call the onDismiss callback to update the UI
+      onDismiss();
+    } catch (error) {
+      console.error("Failed to update quick start guide setting:", error);
+    }
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="shrink-0">
@@ -19,7 +31,7 @@ export default function QuickStartGuide({ onDismiss }) {
                 <p className="text-small text-default-500">Get started in 4 steps</p>
               </div>
             </div>
-            <Button isIconOnly size="sm" variant="light" onPress={onDismiss} className="text-default-400 hover:text-default-600">
+            <Button isIconOnly size="sm" variant="light" onPress={handleDismiss} className="text-default-400 hover:text-default-600">
               <X size={20} />
             </Button>
           </div>
