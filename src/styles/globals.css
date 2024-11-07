@@ -25,3 +25,7 @@ body {
     text-wrap: balance;
   }
 }
+
+::-ms-reveal {
+  display: none;
+}

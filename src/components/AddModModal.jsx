@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input, Link } from "@nextui-org/react";
-import { ExternalLink } from "lucide-react";
+import { Package2, ExternalLink, AlertCircle, Key, Plus, FileText } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { motion } from "framer-motion";
+import { open } from "@tauri-apps/api/shell";
 
 export default function AddModModal({ isOpen, onClose, onAdd, onOpenSettings }) {
   const [curseforgeId, setCurseforgeId] = useState("");
@@ -29,7 +31,17 @@ export default function AddModModal({ isOpen, onClose, onAdd, onOpenSettings }) 
     }
   };
 
+  const openCurseForge = async () => {
+    try {
+      await open("https://www.curseforge.com/");
+    } catch (error) {
+      console.error("Failed to open CurseForge:", error);
+    }
+  };
+
   const handleAdd = async () => {
+    if (!curseforgeId.trim()) return;
+
     setIsLoading(true);
     setError(""); // Clear any previous errors
 
@@ -43,13 +55,11 @@ export default function AddModModal({ isOpen, onClose, onAdd, onOpenSettings }) 
     } catch (error) {
       console.error("Failed to add mod:", error);
 
-      // Handle different error cases
       if (!hasApiKey) {
         onOpenSettings();
         return;
       }
 
-      // Set user-friendly error message
       if (error.toString().includes("already exists")) {
         setError("This mod is already being tracked.");
       } else if (error.toString().includes("not found")) {
@@ -65,59 +75,99 @@ export default function AddModModal({ isOpen, onClose, onAdd, onOpenSettings }) 
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="xl"
+      backdrop="blur"
+      classNames={{
+        backdrop: "bg-background/50 backdrop-blur-sm",
+        base: "border border-default-100 bg-content1",
+        body: "py-6",
+        closeButton: "hover:bg-default-100",
+      }}
+    >
       <ModalContent>
-        <ModalHeader>Add New Mod</ModalHeader>
+        <ModalHeader>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-primary/10">
+              <Package2 size={18} className="text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Add New Mod</h2>
+              <p className="text-sm text-default-500">Start tracking a CurseForge mod</p>
+            </div>
+          </motion.div>
+        </ModalHeader>
+
         <ModalBody>
           {!hasApiKey ? (
-            <div className="text-center p-4">
-              <p className="text-sm text-default-500 mb-4">Please set your CurseForge API key in settings before adding mods.</p>
-              <Button color="primary" onPress={onOpenSettings}>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-4 p-6">
+              <div className="p-3 rounded-full bg-warning/10">
+                <Key size={24} className="text-warning" />
+              </div>
+              <div className="text-center space-y-2">
+                <p className="text-default-600">CurseForge API Key Required</p>
+                <p className="text-sm text-default-500">Please set your API key in settings before adding mods.</p>
+              </div>
+              <Button color="primary" onPress={onOpenSettings} className="font-medium">
                 Open Settings
               </Button>
-            </div>
+            </motion.div>
           ) : (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-default-500 mb-2">To find a mod&apos;s ID:</p>
-                <ol className="text-sm text-default-500 list-decimal list-inside space-y-1">
-                  <li>Go to the mod&apos;s page on CurseForge</li>
-                  <li>The ID is the number in the URL after &quot;/projects/&quot;</li>
-                </ol>
-                <p className="text-sm text-default-500 mt-2">Example: For &quot;https://www.curseforge.com/minecraft/mc-mods/jei/files&quot;, the mod ID is &quot;238222&quot;</p>
-              </div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              {error && (
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 p-4 rounded-xl border border-danger-200 bg-danger-50/10 text-danger">
+                  <AlertCircle size={18} />
+                  <p className="text-sm">{error}</p>
+                </motion.div>
+              )}
 
-              <Input
-                label="CurseForge Mod ID"
-                type="number"
-                value={curseforgeId}
-                onChange={(e) => setCurseforgeId(e.target.value)}
-                placeholder="Enter the mod ID from CurseForge"
-                isInvalid={!!error}
-                errorMessage={error}
-                startContent={
-                  <div className="pointer-events-none flex items-center">
-                    <span className="text-default-400 text-small">#</span>
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-default-50">
+                  <h3 className="text-sm font-medium text-default-600 mb-3">How to find a mod&apos;s ID:</h3>
+                  <ol className="space-y-2.5 text-sm text-default-500">
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium bg-default-100 rounded-full w-5 h-5 flex items-center justify-center shrink-0">1</span>
+                      <span>Go to the mod&apos;s page on CurseForge</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium bg-default-100 rounded-full w-5 h-5 flex items-center justify-center shrink-0">2</span>
+                      <span>Find the &quot;About Project&quot; section</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium bg-default-100 rounded-full w-5 h-5 flex items-center justify-center shrink-0">3</span>
+                      <span>Look for &quot;Project ID&quot; - this is your mod ID</span>
+                    </li>
+                  </ol>
+                  <div className="flex items-center gap-2 mt-4 p-2 rounded-lg bg-default-100">
+                    <FileText size={14} className="text-default-500" />
+                    <p className="text-xs text-default-500">Project ID can be found in the &quot;About Project&quot; section of any mod page</p>
                   </div>
-                }
-              />
+                </div>
 
-              <div className="flex justify-end">
-                <Link isExternal href="https://www.curseforge.com/minecraft/mc-mods" showAnchorIcon className="text-sm">
-                  Browse CurseForge Mods
-                </Link>
+                <Input label="CurseForge Mod ID" placeholder="Enter the Project ID from CurseForge" value={curseforgeId} onChange={(e) => setCurseforgeId(e.target.value)} type="number" isInvalid={!!error} errorMessage={error} startContent={<span className="text-default-400 text-small">#</span>} />
+
+                <div className="flex justify-end">
+                  <Button variant="light" onPress={openCurseForge} endContent={<ExternalLink size={16} />} className="text-primary">
+                    Browse CurseForge Mods
+                  </Button>
+                </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </ModalBody>
+
         {hasApiKey && (
-          <ModalFooter>
-            <Button color="danger" variant="light" onPress={onClose}>
-              Cancel
-            </Button>
-            <Button color="primary" onPress={handleAdd} isLoading={isLoading} isDisabled={!curseforgeId}>
-              Add Mod
-            </Button>
+          <ModalFooter className="px-6 py-4">
+            <div className="flex gap-2">
+              <Button variant="flat" onPress={onClose} className="font-medium bg-default-100 hover:bg-default-200">
+                Cancel
+              </Button>
+              <Button color="primary" onPress={handleAdd} isLoading={isLoading} isDisabled={!curseforgeId.trim()} className="font-medium bg-primary hover:bg-primary-500" startContent={!isLoading && <Plus size={18} />}>
+                Add Mod
+              </Button>
+            </div>
           </ModalFooter>
         )}
       </ModalContent>
