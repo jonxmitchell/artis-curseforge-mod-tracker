@@ -8,6 +8,7 @@ pub struct Mod {
     pub name: String,
     pub game_name: String,
     pub last_updated: String,
+    pub page_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,7 +20,7 @@ pub struct ModWithWebhooks {
 
 pub fn get_all_mods(conn: &Connection) -> Result<Vec<ModWithWebhooks>> {
     let mut stmt = conn.prepare(
-        "SELECT m.id, m.curseforge_id, m.name, m.game_name, m.last_updated,
+        "SELECT m.id, m.curseforge_id, m.name, m.game_name, m.last_updated, m.page_url,
          GROUP_CONCAT(mwa.webhook_id) as webhook_ids
          FROM mods m
          LEFT JOIN mod_webhook_assignments mwa ON m.id = mwa.mod_id
@@ -28,7 +29,7 @@ pub fn get_all_mods(conn: &Connection) -> Result<Vec<ModWithWebhooks>> {
     )?;
 
     let mods_iter = stmt.query_map([], |row| {
-        let webhook_ids_str: Option<String> = row.get(5)?;
+        let webhook_ids_str: Option<String> = row.get(6)?;
         let webhook_ids = webhook_ids_str
             .map(|ids| {
                 ids.split(',')
@@ -43,6 +44,7 @@ pub fn get_all_mods(conn: &Connection) -> Result<Vec<ModWithWebhooks>> {
             name: row.get(2)?,
             game_name: row.get(3)?,
             last_updated: row.get(4)?,
+            page_url: row.get(5)?,
         };
 
         Ok(ModWithWebhooks {
@@ -61,13 +63,14 @@ pub fn get_all_mods(conn: &Connection) -> Result<Vec<ModWithWebhooks>> {
 
 pub fn insert_mod(conn: &Connection, mod_data: &Mod) -> Result<i64> {
     conn.execute(
-        "INSERT INTO mods (curseforge_id, name, game_name, last_updated)
-         VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO mods (curseforge_id, name, game_name, last_updated, page_url)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
             mod_data.curseforge_id,
             mod_data.name,
             mod_data.game_name,
             mod_data.last_updated,
+            mod_data.page_url,
         ],
     )?;
 

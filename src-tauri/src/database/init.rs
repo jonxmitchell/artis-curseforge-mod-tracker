@@ -31,7 +31,8 @@ pub fn initialize_database(connection: &Connection) -> Result<()> {
             curseforge_id INTEGER NOT NULL UNIQUE,
             name TEXT NOT NULL,
             game_name TEXT NOT NULL,
-            last_updated TEXT NOT NULL
+            last_updated TEXT NOT NULL,
+            page_url TEXT
         )",
         [],
     )?;

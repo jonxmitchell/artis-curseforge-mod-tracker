@@ -17,45 +17,58 @@ pub struct CurseForgeResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CurseForgeModData {
-    id: i64,
-    name: String,
+    pub id: i64,
+    pub name: String,
     #[serde(rename = "dateModified")]
-    date_modified: String,
+    pub date_modified: String,
     #[serde(rename = "dateReleased")]
-    date_released: String,
-    authors: Vec<ModAuthor>,
+    pub date_released: String,
+    pub authors: Vec<ModAuthor>,
     #[serde(rename = "latestFiles")]
-    latest_files: Vec<ModFile>,
+    pub latest_files: Vec<ModFile>,
     #[serde(rename = "gameId")]
-    game_id: i64,
-    logo: Option<ModLogo>,
+    pub game_id: i64,
+    pub logo: Option<ModLogo>,
+    pub links: ModLinks,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ModLogo {
-    id: i64,
-    #[serde(rename = "modId")]
-    mod_id: i64,
-    title: String,
-    description: String,
-    #[serde(rename = "thumbnailUrl")]
-    thumbnail_url: String,
-    url: String,
+pub struct ModLinks {
+    #[serde(rename = "websiteUrl")]
+    pub website_url: String,
+    #[serde(rename = "wikiUrl")]
+    pub wiki_url: String,
+    #[serde(rename = "issuesUrl")]
+    pub issues_url: String,
+    #[serde(rename = "sourceUrl")]
+    pub source_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModAuthor {
-    name: String,
-    url: String,
+    pub name: String,
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModFile {
     #[serde(rename = "fileName")]
-    file_name: String,
+    pub file_name: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModLogo {
+    pub id: i64,
+    #[serde(rename = "modId")]
+    pub mod_id: i64,
+    pub title: String,
+    pub description: String,
+    #[serde(rename = "thumbnailUrl")]
+    pub thumbnail_url: String,
+    pub url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ModUpdateInfo {
     pub mod_id: i64,
     pub name: String,
@@ -155,6 +168,9 @@ pub async fn add_mod(
         .await
         .map_err(|e| e.to_string())?;
 
+    // Get page URL from the response
+    let page_url = curse_data.data.links.website_url;
+
     // Fetch game name
     let game_name = get_game_name(&client, curse_data.data.game_id, &api_key).await?;
     println!("Found game: {} (ID: {})", game_name, curse_data.data.game_id);
@@ -165,6 +181,7 @@ pub async fn add_mod(
         name: curse_data.data.name.clone(),
         game_name: game_name.clone(),
         last_updated: curse_data.data.date_modified.clone(),
+        page_url: Some(page_url.clone()),
     };
 
     ensure_database_exists(&db_path).map_err(|e| e.to_string())?;
@@ -183,6 +200,7 @@ pub async fn add_mod(
             "game": game_name,
             "curseforge_id": curseforge_id,
             "initial_version_date": curse_data.data.date_modified,
+            "page_url": page_url,
         }).to_string()),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
@@ -263,6 +281,7 @@ pub async fn check_mod_update(
                 "author": author_name.clone(),
                 "latest_file": latest_file.file_name.clone(),
                 "logo_url": logo_url,
+                "page_url": curse_data.data.links.website_url,
             }).to_string()),
         };
         add_activity(Some(&app_handle), &conn, &activity)
