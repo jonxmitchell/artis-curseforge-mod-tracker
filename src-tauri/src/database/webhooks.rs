@@ -16,7 +16,7 @@ pub struct Webhook {
 pub fn webhook_name_exists(conn: &Connection, name: &str, exclude_id: Option<i64>) -> Result<bool> {
     let mut query = "SELECT COUNT(*) FROM webhooks WHERE LOWER(name) = LOWER(?)".to_string();
     
-    if let Some(id) = exclude_id {
+    if let Some(_id) = exclude_id {
         query.push_str(" AND id != ?");
     }
     
