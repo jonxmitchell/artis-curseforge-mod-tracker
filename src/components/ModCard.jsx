@@ -48,7 +48,7 @@ export default function ModCard({ mod, onDelete, onManageWebhooks }) {
     return null;
   }
 
-  const { id, name, game_name, last_updated, curseforge_id } = mod;
+  const { id, name, game_name, last_updated, page_url } = mod;
 
   const handleDelete = async () => {
     if (!id) return;
@@ -65,8 +65,6 @@ export default function ModCard({ mod, onDelete, onManageWebhooks }) {
     }
   };
 
-  const curseforgeUrl = `https://www.curseforge.com/minecraft/mc-mods/${curseforge_id}`;
-
   return (
     <Card className="group bg-content1/50 hover:bg-content2/80 transition-background">
       <CardBody className="flex flex-row items-center justify-between p-4">
@@ -74,9 +72,11 @@ export default function ModCard({ mod, onDelete, onManageWebhooks }) {
           <div className="flex items-center gap-2 mb-1">
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <h3 className="text-lg font-semibold truncate">{name}</h3>
-              <Link href={curseforgeUrl} target="_blank" size="sm">
-                <ExternalLink size={16} className="text-default-400 hover:text-primary transition-colors" />
-              </Link>
+              {page_url && (
+                <Link href={page_url} target="_blank" size="sm">
+                  <ExternalLink size={16} className="text-default-400 hover:text-primary transition-colors" />
+                </Link>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Chip
