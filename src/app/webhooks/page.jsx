@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Input, CircularProgress, ScrollShadow } from "@nextui-org/react";
-import { Plus, AlertTriangle, RefreshCw, Webhook as WebhookIcon, Search, Bot, Image } from "lucide-react";
+import { Button, CircularProgress, ScrollShadow, Input } from "@nextui-org/react";
+import { Plus, AlertTriangle, RefreshCw, Webhook as WebhookIcon, Search } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { motion, AnimatePresence } from "framer-motion";
 import WebhookCard from "@/components/WebhookCard";
+import AddWebhookModal from "@/components/AddWebhookModal";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -19,14 +20,6 @@ export default function WebhooksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newWebhook, setNewWebhook] = useState({
-    name: "",
-    url: "",
-    username: "",
-    avatar_url: "",
-    enabled: true,
-    use_custom_template: false,
-  });
 
   // Filter webhooks based on search
   const filteredWebhooks = useMemo(() => {
@@ -54,22 +47,14 @@ export default function WebhooksPage() {
     }
   };
 
-  const handleAddWebhook = async () => {
+  const handleAddWebhook = async (webhook) => {
     try {
-      const addedWebhook = await invoke("add_webhook", { webhook: newWebhook });
+      const addedWebhook = await invoke("add_webhook", { webhook });
       setWebhooks((prevWebhooks) => [...prevWebhooks, addedWebhook]);
       setIsAddModalOpen(false);
-      setNewWebhook({
-        name: "",
-        url: "",
-        username: "",
-        avatar_url: "",
-        enabled: true,
-        use_custom_template: false,
-      });
     } catch (error) {
       console.error("Failed to add webhook:", error);
-      setError("Failed to add webhook. Please try again.");
+      throw error;
     }
   };
 
@@ -196,100 +181,7 @@ export default function WebhooksPage() {
           </ScrollShadow>
 
           {/* Add Webhook Modal */}
-          <Modal
-            isOpen={isAddModalOpen}
-            onClose={() => setIsAddModalOpen(false)}
-            size="lg"
-            classNames={{
-              base: "bg-content1",
-              header: "border-b border-default-100",
-              body: "py-6",
-              footer: "border-t border-default-100",
-            }}
-          >
-            <ModalContent>
-              <ModalHeader>
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-primary/10">
-                    <WebhookIcon size={18} className="text-primary" />
-                  </div>
-                  <h2 className="text-xl font-bold">Add New Webhook</h2>
-                </div>
-              </ModalHeader>
-              <ModalBody>
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-default-600">Required Information</h3>
-                    <Input
-                      label="Webhook Name"
-                      placeholder="Enter a name for this webhook"
-                      value={newWebhook.name}
-                      onChange={(e) => setNewWebhook({ ...newWebhook, name: e.target.value })}
-                      variant="bordered"
-                      classNames={{
-                        label: "text-default-600",
-                        inputWrapper: "bg-content1 hover:bg-content2 transition-background",
-                      }}
-                      description="A friendly name to identify this webhook"
-                    />
-                    <Input
-                      label="Discord Webhook URL"
-                      placeholder="https://discord.com/api/webhooks/..."
-                      value={newWebhook.url}
-                      onChange={(e) => setNewWebhook({ ...newWebhook, url: e.target.value })}
-                      variant="bordered"
-                      classNames={{
-                        label: "text-default-600",
-                        inputWrapper: "bg-content1 hover:bg-content2 transition-background font-mono",
-                      }}
-                      description="The Discord webhook URL for sending notifications"
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-default-600">Optional Settings</h3>
-                      <span className="text-xs text-default-400">Customize how notifications appear</span>
-                    </div>
-                    <Input
-                      label="Bot Username"
-                      placeholder="Custom username for the webhook"
-                      value={newWebhook.username}
-                      onChange={(e) => setNewWebhook({ ...newWebhook, username: e.target.value })}
-                      variant="bordered"
-                      startContent={<Bot size={16} className="text-default-400" />}
-                      classNames={{
-                        label: "text-default-600",
-                        inputWrapper: "bg-content1 hover:bg-content2 transition-background",
-                      }}
-                      description="Override the default webhook bot name"
-                    />
-                    <Input
-                      label="Avatar URL"
-                      placeholder="https://example.com/avatar.png"
-                      value={newWebhook.avatar_url}
-                      onChange={(e) => setNewWebhook({ ...newWebhook, avatar_url: e.target.value })}
-                      variant="bordered"
-                      startContent={<Image size={16} className="text-default-400" />}
-                      classNames={{
-                        label: "text-default-600",
-                        inputWrapper: "bg-content1 hover:bg-content2 transition-background",
-                      }}
-                      description="Custom avatar image URL for the webhook"
-                    />
-                  </div>
-                </div>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={() => setIsAddModalOpen(false)} className="font-medium">
-                  Cancel
-                </Button>
-                <Button color="primary" onPress={handleAddWebhook} isDisabled={!newWebhook.name || !newWebhook.url} className="font-medium" startContent={<Plus size={18} />}>
-                  Add Webhook
-                </Button>
-              </ModalFooter>
-            </ModalContent>
-          </Modal>
+          <AddWebhookModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddWebhook} />
         </div>
       </motion.div>
     </div>
