@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] });
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} min-h-screen bg-background text-foreground`}>
+      <body className={`${inter.className} min-h-screen bg-background text-foreground select-none`}>
         <NextUIProvider>
           <div className="flex min-h-screen">
             <Sidebar />
