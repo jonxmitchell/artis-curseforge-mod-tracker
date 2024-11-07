@@ -172,7 +172,7 @@ export default function WebhooksPage() {
                 <div className="space-y-4 pr-2">
                   {filteredWebhooks.map((webhook, index) => (
                     <motion.div key={webhook.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2, delay: index * 0.05 }}>
-                      <WebhookCard webhook={webhook} onDelete={handleDeleteWebhook} onUpdate={handleUpdateWebhook} />
+                      <WebhookCard key={webhook.id} webhook={webhook} onDelete={handleDeleteWebhook} onUpdate={handleUpdateWebhook} existingWebhooks={webhooks} />
                     </motion.div>
                   ))}
                 </div>
@@ -181,7 +181,7 @@ export default function WebhooksPage() {
           </ScrollShadow>
 
           {/* Add Webhook Modal */}
-          <AddWebhookModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddWebhook} />
+          <AddWebhookModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddWebhook} existingWebhooks={webhooks} />
         </div>
       </motion.div>
     </div>

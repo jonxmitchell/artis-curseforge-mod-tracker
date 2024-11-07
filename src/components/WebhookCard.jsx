@@ -1,12 +1,12 @@
 "use client";
 
-import { Card, CardBody, Button, Switch, Tooltip } from "@nextui-org/react";
-import { Trash2, TestTubes, Bot, Webhook, CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { Card, CardBody, Button, Switch, Tooltip, Input } from "@nextui-org/react";
+import { Trash2, TestTubes, Bot, Webhook, CheckCircle2, AlertCircle, FileText, Pencil, X } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
-export default function WebhookCard({ webhook, onDelete, onUpdate }) {
+export default function WebhookCard({ webhook, onDelete, onUpdate, existingWebhooks }) {
   const [isTesting, setIsTesting] = useState(false);
   const [isEnabled, setIsEnabled] = useState(webhook.enabled);
   const [useCustomTemplate, setUseCustomTemplate] = useState(webhook.use_custom_template);
@@ -14,6 +14,24 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
   const [testSuccess, setTestSuccess] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState(webhook.name);
+  const [renameError, setRenameError] = useState("");
+
+  const validateName = (name) => {
+    if (!name.trim()) {
+      return "Webhook name cannot be empty";
+    }
+
+    // Check if name exists in other webhooks (case-insensitive)
+    const nameExists = existingWebhooks.some((w) => w.id !== webhook.id && w.name.toLowerCase() === name.trim().toLowerCase());
+
+    if (nameExists) {
+      return "A webhook with this name already exists";
+    }
+
+    return "";
+  };
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -69,6 +87,49 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
     setIsTemplateModalOpen(true);
   };
 
+  const handleStartRename = () => {
+    setIsRenaming(true);
+    setNewName(webhook.name);
+    setRenameError("");
+  };
+
+  const handleCancelRename = () => {
+    setIsRenaming(false);
+    setNewName(webhook.name);
+    setRenameError("");
+  };
+
+  const handleSaveRename = async () => {
+    const error = validateName(newName);
+    if (error) {
+      setRenameError(error);
+      return;
+    }
+
+    if (newName.trim() === webhook.name) {
+      handleCancelRename();
+      return;
+    }
+
+    try {
+      const updatedWebhook = {
+        ...webhook,
+        name: newName.trim(),
+      };
+      await onUpdate(updatedWebhook);
+      setIsRenaming(false);
+      setRenameError("");
+    } catch (error) {
+      console.error("Failed to rename webhook:", error);
+      if (error.toString().includes("already exists")) {
+        setRenameError("A webhook with this name already exists");
+      } else {
+        setRenameError("Failed to rename webhook");
+      }
+      setNewName(webhook.name);
+    }
+  };
+
   const handleConfirmTemplateDisable = async () => {
     try {
       const updatedWebhook = {
@@ -110,7 +171,46 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-lg font-semibold">{webhook.name}</h3>
+                    {isRenaming ? (
+                      <div className="flex flex-col gap-2 w-full max-w-md">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            size="sm"
+                            value={newName}
+                            onChange={(e) => {
+                              setNewName(e.target.value);
+                              setRenameError("");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveRename();
+                              if (e.key === "Escape") handleCancelRename();
+                            }}
+                            isInvalid={!!renameError}
+                            autoFocus
+                            classNames={{
+                              input: "text-lg font-semibold",
+                              inputWrapper: "h-9",
+                            }}
+                          />
+                          <Button isIconOnly size="sm" color="primary" variant="light" onPress={handleSaveRename}>
+                            <CheckCircle2 size={18} />
+                          </Button>
+                          <Button isIconOnly size="sm" variant="light" onPress={handleCancelRename}>
+                            <X size={18} />
+                          </Button>
+                        </div>
+                        {renameError && <span className="text-danger text-xs">{renameError}</span>}
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="text-lg font-semibold">{webhook.name}</h3>
+                        <Tooltip content="Rename Webhook">
+                          <Button isIconOnly size="sm" variant="light" onPress={handleStartRename} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Pencil size={14} />
+                          </Button>
+                        </Tooltip>
+                      </>
+                    )}
                     {webhook.username && (
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-default-100 rounded-full">
                         <Bot size={14} className="text-default-500" />

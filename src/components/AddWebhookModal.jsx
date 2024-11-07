@@ -5,9 +5,13 @@ import { Webhook as WebhookIcon, Bot, Image, Plus, Link as LinkIcon } from "luci
 import { useState } from "react";
 import { motion } from "framer-motion";
 
-export default function AddWebhookModal({ isOpen, onClose, onAdd }) {
+export default function AddWebhookModal({ isOpen, onClose, onAdd, existingWebhooks = [] }) {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({
+    name: "",
+    url: "",
+    general: "",
+  });
   const [newWebhook, setNewWebhook] = useState({
     name: "",
     url: "",
@@ -17,42 +21,109 @@ export default function AddWebhookModal({ isOpen, onClose, onAdd }) {
     use_custom_template: false,
   });
 
-  const handleAdd = async () => {
-    if (!newWebhook.name.trim() || !newWebhook.url.trim()) {
-      setError("Please fill in all required fields");
-      return;
+  const validateWebhook = () => {
+    const newErrors = {
+      name: "",
+      url: "",
+      general: "",
+    };
+
+    // Check for empty required fields
+    if (!newWebhook.name.trim()) {
+      newErrors.name = "Webhook name is required";
     }
 
-    if (!newWebhook.url.startsWith("https://discord.com/api/webhooks/")) {
-      setError("Please enter a valid Discord webhook URL");
+    if (!newWebhook.url.trim()) {
+      newErrors.url = "Webhook URL is required";
+    }
+
+    // Check for duplicate name (case-insensitive)
+    const nameExists = existingWebhooks.some((webhook) => webhook.name.toLowerCase() === newWebhook.name.trim().toLowerCase());
+    if (nameExists) {
+      newErrors.name = "A webhook with this name already exists";
+    }
+
+    // Check for duplicate URL
+    const urlExists = existingWebhooks.some((webhook) => webhook.url === newWebhook.url.trim());
+    if (urlExists) {
+      newErrors.url = "This webhook URL is already in use";
+    }
+
+    // Validate Discord webhook URL format
+    if (newWebhook.url && !newWebhook.url.startsWith("https://discord.com/api/webhooks/")) {
+      newErrors.url = "Please enter a valid Discord webhook URL";
+    }
+
+    setErrors(newErrors);
+    return !Object.values(newErrors).some((error) => error);
+  };
+
+  const resetForm = () => {
+    setNewWebhook({
+      name: "",
+      url: "",
+      username: "",
+      avatar_url: "",
+      enabled: true,
+      use_custom_template: false,
+    });
+    setErrors({
+      name: "",
+      url: "",
+      general: "",
+    });
+  };
+
+  const handleAdd = async () => {
+    if (!validateWebhook()) {
       return;
     }
 
     try {
       setIsLoading(true);
-      setError("");
-      await onAdd(newWebhook);
-      setNewWebhook({
-        name: "",
-        url: "",
-        username: "",
-        avatar_url: "",
-        enabled: true,
-        use_custom_template: false,
-      });
+      setErrors({ name: "", url: "", general: "" });
+
+      // Trim all string fields
+      const webhookToAdd = {
+        ...newWebhook,
+        name: newWebhook.name.trim(),
+        url: newWebhook.url.trim(),
+        username: newWebhook.username.trim(),
+        avatar_url: newWebhook.avatar_url.trim(),
+      };
+
+      await onAdd(webhookToAdd);
+      resetForm();
       onClose();
     } catch (error) {
       console.error("Failed to add webhook:", error);
-      setError("Failed to add webhook. Please try again.");
+
+      // Handle specific error cases
+      if (error.toString().includes("already exists")) {
+        setErrors((prev) => ({
+          ...prev,
+          name: "A webhook with this name already exists",
+        }));
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          general: "Failed to add webhook. Please try again.",
+        }));
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       size="lg"
       backdrop="blur"
       classNames={{
@@ -76,10 +147,10 @@ export default function AddWebhookModal({ isOpen, onClose, onAdd }) {
         </ModalHeader>
         <ModalBody>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            {error && (
+            {errors.general && (
               <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 p-4 rounded-xl border border-danger-200 bg-danger-50/10 text-danger">
                 <div className="shrink-0">⚠️</div>
-                <p className="text-sm">{error}</p>
+                <p className="text-sm">{errors.general}</p>
               </motion.div>
             )}
 
@@ -90,14 +161,31 @@ export default function AddWebhookModal({ isOpen, onClose, onAdd }) {
                   <LinkIcon size={16} className="text-primary" />
                   <h3 className="text-sm font-medium">Required Information</h3>
                 </div>
-                <Input label="Webhook Name" placeholder="Enter a name for this webhook" value={newWebhook.name} onChange={(e) => setNewWebhook({ ...newWebhook, name: e.target.value })} description="A friendly name to identify this webhook" isRequired />
+                <Input
+                  label="Webhook Name"
+                  placeholder="Enter a name for this webhook"
+                  value={newWebhook.name}
+                  onChange={(e) => {
+                    setNewWebhook({ ...newWebhook, name: e.target.value });
+                    if (errors.name) setErrors({ ...errors, name: "" });
+                  }}
+                  description="A friendly name to identify this webhook"
+                  isRequired
+                  isInvalid={!!errors.name}
+                  errorMessage={errors.name}
+                />
                 <Input
                   label="Discord Webhook URL"
                   placeholder="https://discord.com/api/webhooks/..."
                   value={newWebhook.url}
-                  onChange={(e) => setNewWebhook({ ...newWebhook, url: e.target.value })}
+                  onChange={(e) => {
+                    setNewWebhook({ ...newWebhook, url: e.target.value });
+                    if (errors.url) setErrors({ ...errors, url: "" });
+                  }}
                   description="The Discord webhook URL for sending notifications"
                   isRequired
+                  isInvalid={!!errors.url}
+                  errorMessage={errors.url}
                   classNames={{
                     input: "font-mono text-small",
                   }}
@@ -126,10 +214,10 @@ export default function AddWebhookModal({ isOpen, onClose, onAdd }) {
 
         <ModalFooter className="px-6 py-4">
           <div className="flex gap-2">
-            <Button variant="flat" onPress={onClose} className="font-medium bg-default-100 hover:bg-default-200">
+            <Button variant="flat" onPress={handleClose} className="font-medium bg-default-100 hover:bg-default-200">
               Cancel
             </Button>
-            <Button color="primary" onPress={handleAdd} isLoading={isLoading} isDisabled={!newWebhook.name || !newWebhook.url} className="font-medium bg-primary hover:bg-primary-500" startContent={!isLoading && <Plus size={18} />}>
+            <Button color="primary" onPress={handleAdd} isLoading={isLoading} isDisabled={!newWebhook.name || !newWebhook.url || isLoading} className="font-medium bg-primary hover:bg-primary-500" startContent={!isLoading && <Plus size={18} />}>
               Add Webhook
             </Button>
           </div>

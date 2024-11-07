@@ -12,7 +12,31 @@ pub struct Webhook {
     pub use_custom_template: bool,
 }
 
+/// Checks if a webhook name already exists, optionally excluding a specific webhook ID
+pub fn webhook_name_exists(conn: &Connection, name: &str, exclude_id: Option<i64>) -> Result<bool> {
+    let mut query = "SELECT COUNT(*) FROM webhooks WHERE LOWER(name) = LOWER(?)".to_string();
+    
+    if let Some(id) = exclude_id {
+        query.push_str(" AND id != ?");
+    }
+    
+    let count: i64 = match exclude_id {
+        Some(id) => conn.query_row(&query, params![name, id], |row| row.get(0))?,
+        None => conn.query_row(&query, params![name], |row| row.get(0))?,
+    };
+    
+    Ok(count > 0)
+}
+
 pub fn insert_webhook(conn: &mut Connection, webhook: &Webhook) -> Result<i64> {
+    // Check if name exists
+    if webhook_name_exists(conn, &webhook.name, None)? {
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(1),
+            Some("A webhook with this name already exists".into())
+        ));
+    }
+
     conn.execute(
         "INSERT INTO webhooks (name, url, avatar_url, username, enabled, use_custom_template)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -57,6 +81,14 @@ pub fn get_all_webhooks(conn: &Connection) -> Result<Vec<Webhook>> {
 }
 
 pub fn update_webhook(conn: &mut Connection, webhook: &Webhook) -> Result<()> {
+    // Check if name exists, excluding current webhook
+    if webhook_name_exists(conn, &webhook.name, webhook.id)? {
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(1),
+            Some("A webhook with this name already exists".into())
+        ));
+    }
+
     conn.execute(
         "UPDATE webhooks 
          SET name = ?1, url = ?2, avatar_url = ?3, username = ?4, enabled = ?5, use_custom_template = ?6
