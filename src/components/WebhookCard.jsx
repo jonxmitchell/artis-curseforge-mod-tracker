@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardBody, Button, Switch, Tooltip } from "@nextui-org/react";
-import { Trash2, TestTubes, Bot, Webhook, CheckCircle2, AlertCircle } from "lucide-react";
+import { Trash2, TestTubes, Bot, Webhook, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
@@ -13,6 +13,7 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
   const [testError, setTestError] = useState(null);
   const [testSuccess, setTestSuccess] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -49,25 +50,41 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
   };
 
   const handleTemplateToggle = async (useCustom) => {
+    // If enabling custom template, no confirmation needed
+    if (useCustom) {
+      try {
+        const updatedWebhook = {
+          ...webhook,
+          use_custom_template: true,
+        };
+        await onUpdate(updatedWebhook);
+        setUseCustomTemplate(true);
+      } catch (error) {
+        console.error("Failed to update template settings:", error);
+      }
+      return;
+    }
+
+    // If disabling custom template, show confirmation
+    setIsTemplateModalOpen(true);
+  };
+
+  const handleConfirmTemplateDisable = async () => {
     try {
       const updatedWebhook = {
         ...webhook,
-        use_custom_template: useCustom,
+        use_custom_template: false,
       };
-
       await onUpdate(updatedWebhook);
-      setUseCustomTemplate(useCustom);
-
-      if (!useCustom) {
-        await invoke("delete_custom_template", { webhookId: webhook.id });
-      }
+      await invoke("delete_custom_template", { webhookId: webhook.id });
+      setUseCustomTemplate(false);
     } catch (error) {
       console.error("Failed to update template settings:", error);
-      setUseCustomTemplate(!useCustom);
+      throw error;
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     setIsDeleteModalOpen(true);
   };
 
@@ -165,7 +182,11 @@ export default function WebhookCard({ webhook, onDelete, onUpdate }) {
         </CardBody>
       </Card>
 
-      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} title="Delete Webhook" message="This will permanently delete this webhook and remove all mod assignments associated with it as well the custom template if one is created for this webhook. Any future updates for assigned mods will no longer be sent to this webhook." itemType="webhook" />
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} title="Delete Webhook" message="This will permanently delete this webhook and remove all mod assignments associated with it as well the custom template if one is created for this webhook. Any future updates for assigned mods will no longer be sent to this webhook." itemType="webhook" icon={Trash2} iconColor="danger" />
+
+      {/* Template Disable Confirmation Modal */}
+      <DeleteConfirmationModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onConfirm={handleConfirmTemplateDisable} title="Disable Custom Template" message="This will permanently delete the custom template for this webhook. The webhook will revert to using the default template for all notifications. This action cannot be reversed, and you'll need to recreate the template if you want to use it again." itemType="template" icon={FileText} iconColor="warning" />
     </>
   );
 }

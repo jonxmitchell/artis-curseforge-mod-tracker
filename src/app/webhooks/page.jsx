@@ -116,7 +116,7 @@ export default function WebhooksPage() {
                 </div>
               )}
             </div>
-            <Button color="primary" startContent={<Plus size={20} />} onPress={() => setIsAddModalOpen(true)} variant="shadow">
+            <Button color="primary" startContent={<Plus size={20} />} onPress={() => setIsAddModalOpen(true)}>
               Add Webhook
             </Button>
           </div>

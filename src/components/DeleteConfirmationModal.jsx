@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input } from "@nextui-org/react";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, FileText } from "lucide-react";
 
-const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title = "Confirm Delete", message = "This action cannot be undone.", itemType = "item" }) => {
+const DeleteConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title = "Confirm Delete",
+  message = "This action cannot be undone.",
+  itemType = "item",
+  icon: Icon = AlertTriangle, // Allow custom icon
+  iconColor = "danger", // Allow custom icon color
+}) => {
   const [verificationCode, setVerificationCode] = useState("");
   const [userInputs, setUserInputs] = useState(Array(6).fill(""));
   const [isValid, setIsValid] = useState(Array(6).fill(false));
@@ -54,7 +63,7 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title = "Confirm 
       await onConfirm();
       onClose();
     } catch (error) {
-      console.error("Delete operation failed:", error);
+      console.error("Operation failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +74,6 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title = "Confirm 
       isOpen={isOpen}
       onClose={onClose}
       size="lg"
-      backdrop="blur"
       classNames={{
         backdrop: "bg-background/50 backdrop-blur-sm",
         base: "border border-default-100 bg-content1",
@@ -73,8 +81,8 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title = "Confirm 
     >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-danger/10">
-            <Trash2 size={18} className="text-danger" />
+          <div className={`p-2 rounded-xl bg-${iconColor}/10`}>
+            <Icon size={18} className={`text-${iconColor}`} />
           </div>
           <div>
             <h3 className="text-xl font-bold">{title}</h3>
@@ -83,11 +91,11 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title = "Confirm 
         </ModalHeader>
         <ModalBody>
           <div className="space-y-6">
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-danger/10">
-              <AlertTriangle size={20} className="text-danger shrink-0 mt-0.5" />
+            <div className={`flex items-start gap-3 p-4 rounded-xl bg-${iconColor}/10`}>
+              <Icon size={20} className={`text-${iconColor} shrink-0 mt-0.5`} />
               <div className="space-y-2">
-                <p className="text-danger font-medium">Warning: This action cannot be undone</p>
-                <p className="text-sm text-default-600">This will permanently delete this webhook and remove all mod assignments associated with it as well the custom template if one is created for this webhook. Any future updates for assigned mods will no longer be sent to this webhook.</p>
+                <p className={`text-${iconColor} font-medium`}>Warning: This action cannot be undone</p>
+                <p className="text-sm text-default-600">{message}</p>
               </div>
             </div>
 
@@ -95,7 +103,7 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title = "Confirm 
               <div className="flex justify-center">
                 <p className="font-mono text-xl tracking-wider bg-default-100 px-4 py-2 rounded-lg">{verificationCode}</p>
               </div>
-              <p className="text-center text-sm text-default-500">Type the code above to confirm deletion</p>
+              <p className="text-center text-sm text-default-500">Type the code above to confirm</p>
               <div className="flex justify-center gap-2">
                 {Array(6)
                   .fill(0)
@@ -122,8 +130,8 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title = "Confirm 
           <Button variant="flat" onPress={onClose}>
             Cancel
           </Button>
-          <Button color="danger" onPress={handleConfirm} isLoading={isLoading} isDisabled={!isConfirmEnabled}>
-            Delete {itemType}
+          <Button color={iconColor} onPress={handleConfirm} isLoading={isLoading} isDisabled={!isConfirmEnabled}>
+            Confirm
           </Button>
         </ModalFooter>
       </ModalContent>
