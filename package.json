@@ -18,7 +18,8 @@
     "lucide-react": "^0.454.0",
     "next": "14.2.8",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "reanimated-color-picker": "^3.0.4"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1.6.1",

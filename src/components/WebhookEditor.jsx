@@ -6,6 +6,7 @@ import { Trash2, Plus, MoveUp, MoveDown, Info, MessageSquare, Eye, FileText, Cro
 import { invoke } from "@tauri-apps/api/tauri";
 import { motion, AnimatePresence } from "framer-motion";
 import DiscordPreview from "./DiscordPreview";
+import ColorPicker from "./ColorPicker";
 
 const VariableReference = ({ type, variables }) => (
   <div>
@@ -251,20 +252,7 @@ export default function WebhookEditor({ webhook, onSave, isDefault = false }) {
                     <Card>
                       <CardBody className="space-y-4">
                         <Input label="Embed Title" placeholder="Enter a title..." value={template.title} onChange={(e) => setTemplate({ ...template, title: e.target.value })} startContent={<MessageSquare size={16} className="text-default-400" />} />
-                        <div className="flex items-center gap-4">
-                          <Input
-                            type="color"
-                            label="Accent Color"
-                            value={`#${template.color.toString(16).padStart(6, "0")}`}
-                            onChange={(e) =>
-                              setTemplate({
-                                ...template,
-                                color: parseInt(e.target.value.slice(1), 16),
-                              })
-                            }
-                          />
-                          <div className="w-10 h-10 rounded-lg shadow-inner" style={{ backgroundColor: `#${template.color.toString(16).padStart(6, "0")}` }} />
-                        </div>
+                        <ColorPicker color={template.color} onChange={(color) => setTemplate({ ...template, color })} />
                       </CardBody>
                     </Card>
 
