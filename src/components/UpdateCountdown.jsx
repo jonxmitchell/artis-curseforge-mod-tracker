@@ -5,6 +5,7 @@ import { Card, CardBody, Tooltip } from "@nextui-org/react";
 import { Clock, RefreshCw } from "lucide-react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { listen } from "@tauri-apps/api/event";
+import { useModUpdateChecker } from "@/hooks/useModUpdateChecker";
 
 export default function UpdateCountdown() {
   const [timeLeft, setTimeLeft] = useState(null);
@@ -15,6 +16,7 @@ export default function UpdateCountdown() {
   const timeoutRef = useRef(null);
   const intervalRef = useRef(null);
   const updateIntervalRef = useRef(30); // Keep track of current interval
+  const { checkForUpdates } = useModUpdateChecker();
 
   // Function to get the current interval from the database
   const getCurrentInterval = async () => {
@@ -27,6 +29,19 @@ export default function UpdateCountdown() {
     } catch (error) {
       console.error("Failed to get current interval:", error);
       return updateIntervalRef.current;
+    }
+  };
+
+  const performAutoCheck = async () => {
+    setIsChecking(true);
+    try {
+      const currentInterval = await getCurrentInterval();
+      await checkForUpdates(currentInterval);
+      await resetCountdown(currentInterval);
+    } catch (error) {
+      console.error("Auto-check failed:", error);
+    } finally {
+      setIsChecking(false);
     }
   };
 
@@ -120,15 +135,12 @@ export default function UpdateCountdown() {
 
       if (diff <= 0) {
         // Time for automatic check
-        setIsChecking(true);
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
 
-        // Reset countdown with current interval
-        resetCountdown(updateIntervalRef.current);
-        setIsChecking(false);
+        performAutoCheck();
       }
 
       // Update displayed time

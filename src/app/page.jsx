@@ -90,7 +90,7 @@ export default function DashboardPage() {
 
   const handleUpdateCheck = (latestMods, checkTime) => {
     setMods(latestMods);
-    setLastChecked(checkTime);
+    setLastChecked(checkTime instanceof Date ? checkTime : new Date(checkTime));
   };
 
   const stats = useMemo(
@@ -139,7 +139,7 @@ export default function DashboardPage() {
                 <Tooltip content="Last update check">
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-default-100 text-sm">
                     <Clock size={14} className="text-default-500" />
-                    {lastChecked.toLocaleTimeString()}
+                    {lastChecked instanceof Date ? lastChecked.toLocaleTimeString() : new Date(lastChecked).toLocaleTimeString()}
                   </div>
                 </Tooltip>
               )}
