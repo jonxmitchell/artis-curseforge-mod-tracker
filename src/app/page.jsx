@@ -52,16 +52,35 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    let unlisten;
+    let unlistenInterval;
+    let unlistenUpdate;
     const setup = async () => {
-      unlisten = await listen("update_interval_changed", (event) => {
+      // Listen for interval changes
+      unlistenInterval = await listen("update_interval_changed", (event) => {
         setUpdateInterval(event.payload.interval);
       });
+
+      // Listen for update check completions
+      unlistenUpdate = await listen("update_check_completed", async (event) => {
+        console.log("Update check completed event received:", event);
+        const currentTimestamp = event.payload.timestamp ? new Date(event.payload.timestamp) : new Date();
+        setLastChecked(currentTimestamp);
+
+        // Refresh mods list after update
+        try {
+          const updatedMods = await invoke("get_mods");
+          setMods(updatedMods);
+        } catch (error) {
+          console.error("Failed to refresh mods after update:", error);
+        }
+      });
+
       await loadData();
     };
     setup();
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenInterval) unlistenInterval();
+      if (unlistenUpdate) unlistenUpdate();
     };
   }, []);
 

@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { emit } from "@tauri-apps/api/event";
 
 export function useModUpdateChecker() {
   const [isChecking, setIsChecking] = useState(false);
@@ -15,15 +16,12 @@ export function useModUpdateChecker() {
     });
 
     if (updateInfo) {
-      // If there's an update, send notifications through enabled webhooks
       const modWebhooks = await invoke("get_mod_assigned_webhooks", { modId });
       console.log("Mod update found, assigned webhooks:", modWebhooks);
 
-      // Use sequential sending instead of Promise.all to avoid rate limits
       for (const webhook of modWebhooks) {
         if (webhook.enabled) {
           try {
-            // Add delay between webhook calls to prevent rate limiting
             await new Promise((resolve) => setTimeout(resolve, 1000));
             await invoke("send_update_notification", {
               webhook,
@@ -60,12 +58,14 @@ export function useModUpdateChecker() {
         throw new Error("No API key found");
       }
 
+      // Get current interval if not provided
+      const currentInterval = updateInterval || (await invoke("get_update_interval"));
+
       const latestMods = await invoke("get_mods");
       console.log("Starting update check for", latestMods.length, "mods");
 
       let updatesFound = false;
 
-      // Check each mod for updates
       for (const mod of latestMods) {
         const modId = mod.mod_info ? mod.mod_info.id : mod.id;
         const curseforgeId = mod.mod_info ? mod.mod_info.curseforge_id : mod.curseforge_id;
@@ -79,17 +79,19 @@ export function useModUpdateChecker() {
         }
       }
 
-      // Reset countdown timer if provided
-      if (updateInterval) {
-        localStorage.setItem("nextCheckTime", new Date(Date.now() + updateInterval * 60 * 1000).toISOString());
-      }
+      // Emit event with current timestamp and interval
+      const checkTime = new Date();
+      await emit("update_check_completed", {
+        timestamp: checkTime.toISOString(),
+        interval: currentInterval,
+      });
 
-      // Call the success callback if provided
+      // Call success callback if provided
       if (onSuccess) {
-        onSuccess(latestMods, updatesFound);
+        onSuccess(latestMods, checkTime);
       }
 
-      return { success: true, mods: latestMods, updatesFound };
+      return { success: true, mods: latestMods, updatesFound, timestamp: checkTime };
     } catch (error) {
       console.error("Failed to check for updates:", error);
       setError("Failed to check for updates. Please try again.");
