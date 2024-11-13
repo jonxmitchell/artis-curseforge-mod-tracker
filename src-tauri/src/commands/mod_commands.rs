@@ -71,6 +71,7 @@ pub struct ModLogo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModUpdateInfo {
     pub mod_id: i64,
+    pub curseforge_id: i64,
     pub name: String,
     pub old_update_time: String,
     pub new_update_time: String,
@@ -289,6 +290,7 @@ pub async fn check_mod_update(
 
         Ok(Some(ModUpdateInfo {
             mod_id,
+            curseforge_id,
             name: curse_data.data.name,
             old_update_time: current_last_updated,
             new_update_time: new_date,

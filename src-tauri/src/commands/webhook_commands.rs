@@ -13,6 +13,7 @@ use tauri::AppHandle;
 #[derive(Debug)]
 struct ModUpdateData {
     mod_id: i64,
+    curseforge_id: i64,
     mod_name: String,
     mod_author: String,
     new_release_date: String,
@@ -58,7 +59,8 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
     
     // Basic replacements
     let replacements = vec![
-        ("{modID}", data.mod_id.to_string()),
+        ("{modID}", data.curseforge_id.to_string()),  // Use CurseForge ID for modID
+        ("{modDatabaseID}", data.mod_id.to_string()), // Add database ID as alternative
         ("{modName}", data.mod_name.clone()),
         ("{newReleaseDate}", data.new_release_date.clone()),
         ("{oldPreviousDate}", data.old_release_date.clone()),
@@ -66,7 +68,6 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
         ("{here}", "@here".to_string()),
         ("{lastestModFileName}", data.latest_file_name.clone()),
         ("{modAuthorName}", data.mod_author.clone()),
-        // Add logo URL to replacements
         ("{logoUrl}", data.logo_url.clone().unwrap_or_default()),
     ];
 
@@ -248,6 +249,7 @@ pub async fn send_update_notification(
     old_release_date: String,
     latest_file_name: String,
     mod_id: i64,
+    curseforge_id: i64,
     logo_url: Option<String>,
 ) -> Result<bool, String> {
     let client = Client::new();
@@ -259,6 +261,7 @@ pub async fn send_update_notification(
 
     let update_data = ModUpdateData {
         mod_id,
+        curseforge_id,
         mod_name: mod_name.clone(),
         mod_author: mod_author.clone(),
         new_release_date: format_date(&new_release_date),

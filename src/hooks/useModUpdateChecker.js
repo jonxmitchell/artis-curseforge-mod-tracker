@@ -53,6 +53,7 @@ export function useModUpdateChecker() {
               oldReleaseDate: updateInfo.old_update_time,
               latestFileName: updateInfo.latest_file_name,
               modId: updateInfo.mod_id,
+              curseforgeId: updateInfo.curseforge_id,
               logoUrl: updateInfo.logo_url,
             });
             console.log(`Successfully sent notification to webhook: ${webhook.name}`);
@@ -71,6 +72,7 @@ export function useModUpdateChecker() {
                   oldReleaseDate: updateInfo.old_update_time,
                   latestFileName: updateInfo.latest_file_name,
                   modId: updateInfo.mod_id,
+                  curseforgeId: updateInfo.curseforge_id,
                   logoUrl: updateInfo.logo_url,
                 });
                 console.log(`Retry successful for webhook: ${webhook.name}`);
