@@ -400,7 +400,7 @@ It's a good practice to periodically back up your database, especially before up
 1.  Type `%LOCALAPPDATA%\\artis-curseforge-mod-tracker` and press Enter.
 1.  Copy the `curseforge_tracker.db` file to a safe location (e.g., an external drive or cloud storage).
 
-⚠️ **Warning**: Deleting or modifying files in the CFMTData folder can result in loss of your tracked mods, settings, and webhook configurations. Always create a backup before making changes.
+⚠️ **Warning**: Deleting or modifying files in the database can result in loss of your tracked mods, settings, and webhook configurations as well as cause errors. Always create a backup before making changes.
 
 ## 🤝 Contributing
 
