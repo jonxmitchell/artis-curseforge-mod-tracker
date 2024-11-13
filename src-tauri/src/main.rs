@@ -11,8 +11,12 @@ use commands::settings_commands::*;
 use commands::activity_commands::*;
 use rusqlite::Connection;
 
+use tauri_plugin_context_menu::init as init_context_menu;
+
+
 fn main() {
     tauri::Builder::default()
+    .plugin(init_context_menu())
     .setup(|app| {
         let db_path = get_database_path(&app.handle());
         ensure_database_exists(&db_path)?;
