@@ -19,7 +19,8 @@
     "next": "14.2.8",
     "react": "^18",
     "react-dom": "^18",
-    "reanimated-color-picker": "^3.0.4"
+    "reanimated-color-picker": "^3.0.4",
+    "tauri-plugin-context-menu": "^0.8.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1.6.1",
