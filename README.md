@@ -163,9 +163,14 @@ cargo generate-lockfile
 ```
 {modName} - Mod name
 {modID} - Mod ID
-{newReleaseDate} - Update date
 {modAuthorName} - Author name
 {latestModFileName} - File name
+{newReleaseDate} - New update time
+{newReleaseDate} - New update time
+{everyone} - @everyone mention
+{here} - @here mention
+{&roleID} - Mention a role (e.g., {&123456789})
+{#channelID} - Channel link (e.g., {#987654321})
 ```
 
 ### Activity Monitoring
