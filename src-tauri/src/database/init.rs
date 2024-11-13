@@ -95,10 +95,10 @@ pub fn initialize_database(connection: &mut Connection) -> Result<()> {
             include_timestamp BOOLEAN NOT NULL DEFAULT 1,
             use_thumbnail BOOLEAN NOT NULL DEFAULT 0,
             embed_fields TEXT NOT NULL DEFAULT '[
-                {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
-                {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},
-                {\"name\":\"Last Updated\",\"value\":\"{newReleaseDate}\",\"inline\":false},
-                {\"name\":\"Latest File\",\"value\":\"{lastestModFileName}\",\"inline\":false}
+                    {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
+                    {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},
+                    {\"name\":\"Last Updated\",\"value\":\"{newReleaseDate}\",\"inline\":true},
+                    {\"name\":\"Latest File\",\"value\":\"{modID}\",\"inline\":true}
             ]',
             FOREIGN KEY (webhook_id) REFERENCES webhooks (id) ON DELETE CASCADE
         )",
@@ -129,8 +129,8 @@ pub fn initialize_database(connection: &mut Connection) -> Result<()> {
                 '[
                     {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
                     {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},
-                    {\"name\":\"Last Updated\",\"value\":\"{newReleaseDate}\",\"inline\":false},
-                    {\"name\":\"Latest File\",\"value\":\"{lastestModFileName}\",\"inline\":false}
+                    {\"name\":\"Last Updated\",\"value\":\"{newReleaseDate}\",\"inline\":true},
+                    {\"name\":\"Latest File\",\"value\":\"{modID}\",\"inline\":true}
                 ]'
             )",
             [],
