@@ -91,7 +91,6 @@ export default function WebhookAssignModal({ isOpen, onClose, modId }) {
       classNames={{
         backdrop: "bg-background/50 backdrop-blur-sm",
         base: "border border-default-100 bg-content1",
-        header: "border-b border-default-100",
         body: "py-6",
         closeButton: "hover:bg-default-100",
       }}
@@ -149,20 +148,20 @@ export default function WebhookAssignModal({ isOpen, onClose, modId }) {
 
                 <ScrollShadow className="max-h-[400px] space-y-2" hideScrollBar>
                   {filteredWebhooks.map((webhook) => (
-                    <div key={webhook.id} className="group flex items-center gap-3 p-3 rounded-lg hover:bg-default-100 transition-background">
-                      <Checkbox
-                        value={webhook.id.toString()}
-                        isSelected={selectedWebhooks.has(webhook.id.toString())}
-                        onValueChange={(isSelected) => {
-                          const newSelection = new Set(selectedWebhooks);
-                          if (isSelected) {
-                            newSelection.add(webhook.id.toString());
-                          } else {
-                            newSelection.delete(webhook.id.toString());
-                          }
-                          setSelectedWebhooks(newSelection);
-                        }}
-                      >
+                    <div
+                      key={webhook.id}
+                      className="group flex items-center gap-3 p-3 rounded-lg hover:bg-default-100 transition-background cursor-pointer"
+                      onClick={() => {
+                        const newSelection = new Set(selectedWebhooks);
+                        if (!selectedWebhooks.has(webhook.id.toString())) {
+                          newSelection.add(webhook.id.toString());
+                        } else {
+                          newSelection.delete(webhook.id.toString());
+                        }
+                        setSelectedWebhooks(newSelection);
+                      }}
+                    >
+                      <Checkbox value={webhook.id.toString()} isSelected={selectedWebhooks.has(webhook.id.toString())} onChange={() => {}} onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-col gap-1">
                           <span className="font-medium">{webhook.name}</span>
                           {webhook.username && <span className="text-xs text-default-500">@{webhook.username}</span>}
@@ -189,7 +188,7 @@ export default function WebhookAssignModal({ isOpen, onClose, modId }) {
         </ModalBody>
 
         {!isLoading && !error && webhooks.length > 0 && !showSuccess && (
-          <ModalFooter className="border-t border-default-100">
+          <ModalFooter>
             <Button variant="light" onPress={onClose}>
               Cancel
             </Button>
