@@ -41,9 +41,6 @@ A modern, sleek desktop application for tracking and managing CurseForge mod upd
 - 🎯 Mod-specific webhook assignments
 - 📈 Activity history and logging
 - 🎭 Custom webhook avatars and usernames
-- 🎨 Color-coded mod categories
-- 🔍 Advanced search and filtering
-- 📱 Responsive design
 
 ## 🚀 Getting Started
 
