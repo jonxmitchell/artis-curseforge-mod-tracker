@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { Card, CardBody, Button, CircularProgress, Tabs, Tab, Select, SelectItem, ScrollShadow } from "@nextui-org/react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +13,62 @@ const fadeInUp = {
   exit: { opacity: 0, y: -20 },
 };
 
+const getTemplateForWebhook = async (webhookId) => {
+  try {
+    const template = await invoke("get_webhook_template", { webhookId });
+    return template;
+  } catch (error) {
+    console.error("Failed to get webhook template:", error);
+    return null;
+  }
+};
+
+// Memoize the WebhookSelector component
+const WebhookSelector = memo(({ webhooks, selectedWebhook, onSelect }) => (
+  <Card className="bg-content1/50 backdrop-blur-md">
+    <CardBody>
+      <Select
+        label="Select Webhook"
+        placeholder="Choose a webhook to customize"
+        selectedKeys={selectedWebhook ? [selectedWebhook.id.toString()] : []}
+        onChange={(e) => onSelect(e.target.value)}
+        classNames={{
+          trigger: "bg-content1",
+        }}
+      >
+        {webhooks.map((webhook) => (
+          <SelectItem key={webhook.id.toString()} value={webhook.id} textValue={webhook.name}>
+            <div className="flex justify-between items-center gap-2">
+              <span>{webhook.name}</span>
+              <div className="flex items-center gap-2 text-default-500">
+                <MessageSquare size={14} />
+                <span className="text-xs">{webhook.use_custom_template ? "Custom" : "Default"}</span>
+              </div>
+            </div>
+          </SelectItem>
+        ))}
+      </Select>
+    </CardBody>
+  </Card>
+));
+
+WebhookSelector.displayName = "WebhookSelector";
+
+// Memoize the WebhookEditorWrapper component
+const WebhookEditorWrapper = memo(({ webhook, template, onSave, isDefault }) => (
+  <Card className="bg-content1/50 backdrop-blur-md">
+    <CardBody className="gap-4">
+      <div className="space-y-2">
+        <h2 className="text-xl font-bold">{isDefault ? "Default Template" : `Template for ${webhook.name}`}</h2>
+        <p className="text-sm text-default-500">{isDefault ? "This template will be used for all webhooks unless they have a custom template enabled." : "Customize how notifications appear for this specific webhook."}</p>
+      </div>
+      <WebhookEditor key={isDefault ? "default-template" : `webhook-${webhook?.id}`} webhook={webhook} template={template} onSave={onSave} isDefault={isDefault} />
+    </CardBody>
+  </Card>
+));
+
+WebhookEditorWrapper.displayName = "WebhookEditorWrapper";
+
 export default function WebhookTemplatesPage() {
   const [webhooks, setWebhooks] = useState([]);
   const [selectedWebhook, setSelectedWebhook] = useState(null);
@@ -20,12 +76,9 @@ export default function WebhookTemplatesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedTab, setSelectedTab] = useState("default");
+  const [selectedWebhookTemplate, setSelectedWebhookTemplate] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -38,16 +91,42 @@ export default function WebhookTemplatesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const handleSaveTemplate = async () => {
-    await loadData();
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  const handleWebhookSelect = (value) => {
-    const webhook = webhooks.find((w) => w.id.toString() === value);
-    setSelectedWebhook(webhook || null);
-  };
+  const handleWebhookSelect = useCallback(
+    async (value) => {
+      const webhook = webhooks.find((w) => w.id.toString() === value);
+      if (webhook) {
+        setSelectedWebhook(webhook);
+        if (webhook.use_custom_template) {
+          const template = await getTemplateForWebhook(webhook.id);
+          setSelectedWebhookTemplate(template);
+        } else {
+          setSelectedWebhookTemplate(null);
+        }
+      } else {
+        setSelectedWebhook(null);
+        setSelectedWebhookTemplate(null);
+      }
+    },
+    [webhooks]
+  );
+
+  const handleSaveTemplate = useCallback(
+    async (updatedTemplate) => {
+      if (selectedTab === "default") {
+        setDefaultTemplate(updatedTemplate);
+      } else if (selectedWebhook) {
+        setSelectedWebhookTemplate(updatedTemplate);
+        setWebhooks((prevWebhooks) => prevWebhooks.map((webhook) => (webhook.id === selectedWebhook.id ? { ...webhook, use_custom_template: true } : webhook)));
+      }
+    },
+    [selectedTab, selectedWebhook]
+  );
 
   if (isLoading) {
     return (
@@ -129,15 +208,7 @@ export default function WebhookTemplatesPage() {
             <AnimatePresence mode="wait">
               {selectedTab === "default" && defaultTemplate ? (
                 <motion.div {...fadeInUp}>
-                  <Card className="bg-content1/50 backdrop-blur-md">
-                    <CardBody className="gap-4">
-                      <div className="space-y-2">
-                        <h2 className="text-xl font-bold">Default Template</h2>
-                        <p className="text-sm text-default-500">This template will be used for all webhooks unless they have a custom template enabled.</p>
-                      </div>
-                      <WebhookEditor template={defaultTemplate} onSave={handleSaveTemplate} isDefault={true} />
-                    </CardBody>
-                  </Card>
+                  <WebhookEditorWrapper template={defaultTemplate} webhook={null} onSave={handleSaveTemplate} isDefault={true} />
                 </motion.div>
               ) : (
                 selectedTab === "custom" && (
@@ -151,42 +222,10 @@ export default function WebhookTemplatesPage() {
                       </div>
                     ) : (
                       <>
-                        <Card className="bg-content1/50 backdrop-blur-md">
-                          <CardBody>
-                            <Select
-                              label="Select Webhook"
-                              placeholder="Choose a webhook to customize"
-                              selectedKeys={selectedWebhook ? [selectedWebhook.id.toString()] : []}
-                              onChange={(e) => handleWebhookSelect(e.target.value)}
-                              classNames={{
-                                trigger: "bg-content1",
-                              }}
-                            >
-                              {webhooks.map((webhook) => (
-                                <SelectItem key={webhook.id.toString()} value={webhook.id} textValue={webhook.name}>
-                                  <div className="flex justify-between items-center gap-2">
-                                    <span>{webhook.name}</span>
-                                    <div className="flex items-center gap-2 text-default-500">
-                                      <MessageSquare size={14} />
-                                      <span className="text-xs">{webhook.use_custom_template ? "Custom" : "Default"}</span>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </Select>
-                          </CardBody>
-                        </Card>
+                        <WebhookSelector webhooks={webhooks} selectedWebhook={selectedWebhook} onSelect={handleWebhookSelect} />
 
                         {selectedWebhook ? (
-                          <Card className="bg-content1/50 backdrop-blur-md">
-                            <CardBody className="gap-4">
-                              <div className="space-y-2">
-                                <h2 className="text-xl font-bold">Template for {selectedWebhook.name}</h2>
-                                <p className="text-sm text-default-500">Customize how notifications appear for this specific webhook.</p>
-                              </div>
-                              <WebhookEditor webhook={selectedWebhook} onSave={handleSaveTemplate} isDefault={false} />
-                            </CardBody>
-                          </Card>
+                          <WebhookEditorWrapper webhook={selectedWebhook} template={selectedWebhookTemplate || defaultTemplate} onSave={handleSaveTemplate} isDefault={false} />
                         ) : (
                           <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg">
                             <p className="text-default-600">Select a webhook above to customize its template.</p>
