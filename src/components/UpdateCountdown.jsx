@@ -33,12 +33,10 @@ export default function UpdateCountdown() {
     <Card className="bg-content1/50 backdrop-blur-md">
       <CardBody className="p-4">
         <div className="flex items-center gap-3">
-          <Tooltip content={isChecking ? "Checking for updates..." : `Time until next check (${updateInterval}min interval)`}>
-            <div className={`p-2 rounded-xl bg-primary/10`}>{isChecking ? <RefreshCw size={24} className="text-primary animate-spin" /> : <Clock size={24} className="text-primary" />}</div>
-          </Tooltip>
+          <div className={`p-2 rounded-xl bg-primary/10`}>{isChecking ? <RefreshCw size={24} className="text-primary animate-spin" /> : <Clock size={24} className="text-primary" />}</div>
 
           <div className="flex-1">
-            <p className="text-sm font-medium text-default-600">Next Check In {updateInterval}min cycle</p>
+            <p className="text-sm font-medium text-default-600">Next Check In</p>
             <div className="flex items-baseline space-x-1 mt-1">
               <TimeUnit value={timeLeft.hours} unit="h" />
               <span className="text-default-400 text-xl">:</span>
