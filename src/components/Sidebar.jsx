@@ -141,7 +141,7 @@ export default function Sidebar() {
             <AnimatePresence mode="wait">
               {!isCollapsed && (
                 <motion.div initial="hidden" animate="visible" exit="hidden" variants={contentVariants} className="flex flex-col">
-                  <h1 className="font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Mod Tracker</h1>
+                  <h1 className="font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Arti's CurseForge Mod Tracker</h1>
                   <span className="text-xs text-default-500">{APP_VERSION}</span>
                 </motion.div>
               )}

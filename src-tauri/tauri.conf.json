@@ -50,7 +50,7 @@
         "timestampUrl": "",
         "nsis": {
           "template": "installer.nsi",
-          "installerIcon": "icons/icon.png"
+          "installerIcon": "./icons/icon.png"
         }
       }
     },
