@@ -80,6 +80,16 @@ export default function WebhookAssignModal({ isOpen, onClose, modId }) {
     }
   };
 
+  const toggleWebhook = (webhookId) => {
+    const newSelection = new Set(selectedWebhooks);
+    if (selectedWebhooks.has(webhookId.toString())) {
+      newSelection.delete(webhookId.toString());
+    } else {
+      newSelection.add(webhookId.toString());
+    }
+    setSelectedWebhooks(newSelection);
+  };
+
   const filteredWebhooks = webhooks.filter((webhook) => webhook.name.toLowerCase().includes(searchQuery.toLowerCase()) || (webhook.username && webhook.username.toLowerCase().includes(searchQuery.toLowerCase())));
 
   return (
@@ -148,28 +158,22 @@ export default function WebhookAssignModal({ isOpen, onClose, modId }) {
 
                 <ScrollShadow className="max-h-[400px] space-y-2" hideScrollBar>
                   {filteredWebhooks.map((webhook) => (
-                    <div
-                      key={webhook.id}
-                      className="group flex items-center gap-3 p-3 rounded-lg hover:bg-default-100 transition-background cursor-pointer"
-                      onClick={() => {
-                        const newSelection = new Set(selectedWebhooks);
-                        if (!selectedWebhooks.has(webhook.id.toString())) {
-                          newSelection.add(webhook.id.toString());
-                        } else {
-                          newSelection.delete(webhook.id.toString());
-                        }
-                        setSelectedWebhooks(newSelection);
-                      }}
-                    >
-                      <Checkbox value={webhook.id.toString()} isSelected={selectedWebhooks.has(webhook.id.toString())} onChange={() => {}} onClick={(e) => e.stopPropagation()}>
+                    <div key={webhook.id} className="group flex items-center gap-3 p-3 rounded-lg hover:bg-default-100 transition-background cursor-pointer" onClick={() => toggleWebhook(webhook.id)}>
+                      <Checkbox
+                        isSelected={selectedWebhooks.has(webhook.id.toString())}
+                        className="inline-flex"
+                        // Prevent checkbox from handling click to avoid double toggling
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex-1 min-w-0">
                         <div className="flex flex-col gap-1">
                           <span className="font-medium">{webhook.name}</span>
                           {webhook.username && <span className="text-xs text-default-500">@{webhook.username}</span>}
                         </div>
-                      </Checkbox>
+                      </div>
 
                       {!webhook.enabled && (
-                        <Chip size="sm" color="warning" variant="flat" className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Chip size="sm" color="warning" variant="flat" className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           Disabled
                         </Chip>
                       )}
