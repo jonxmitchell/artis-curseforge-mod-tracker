@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Checkbox, Chip, Input, ScrollShadow } from "@nextui-org/react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { motion, AnimatePresence } from "framer-motion";
-import { Webhook, Search, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
+import { Webhook, Search, AlertCircle, Loader2, CheckCircle2, CheckSquare2, Square } from "lucide-react";
 
 export default function WebhookAssignModal({ isOpen, onClose, modId }) {
   const [webhooks, setWebhooks] = useState([]);
@@ -90,7 +90,21 @@ export default function WebhookAssignModal({ isOpen, onClose, modId }) {
     setSelectedWebhooks(newSelection);
   };
 
+  const handleSelectAll = () => {
+    const filteredWebhooks = webhooks.filter((webhook) => webhook.name.toLowerCase().includes(searchQuery.toLowerCase()) || (webhook.username && webhook.username.toLowerCase().includes(searchQuery.toLowerCase())));
+
+    if (filteredWebhooks.length === selectedWebhooks.size) {
+      // If all are selected, deselect all
+      setSelectedWebhooks(new Set());
+    } else {
+      // Otherwise, select all filtered webhooks
+      setSelectedWebhooks(new Set(filteredWebhooks.map((w) => w.id.toString())));
+    }
+  };
+
   const filteredWebhooks = webhooks.filter((webhook) => webhook.name.toLowerCase().includes(searchQuery.toLowerCase()) || (webhook.username && webhook.username.toLowerCase().includes(searchQuery.toLowerCase())));
+
+  const areAllSelected = filteredWebhooks.length > 0 && filteredWebhooks.every((webhook) => selectedWebhooks.has(webhook.id.toString()));
 
   return (
     <Modal
@@ -145,26 +159,27 @@ export default function WebhookAssignModal({ isOpen, onClose, modId }) {
               </motion.div>
             ) : (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-                <Input
-                  placeholder="Search webhooks..."
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                  startContent={<Search size={18} className="text-default-400" />}
-                  classNames={{
-                    inputWrapper: "bg-default-100",
-                  }}
-                  isClearable
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    className="flex-1"
+                    placeholder="Search webhooks..."
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    startContent={<Search size={18} className="text-default-400" />}
+                    classNames={{
+                      inputWrapper: "bg-default-100",
+                    }}
+                    isClearable
+                  />
+                  <Button color={areAllSelected ? "danger" : "primary"} variant="flat" startContent={areAllSelected ? <Square size={16} /> : <CheckSquare2 size={16} />} onPress={handleSelectAll}>
+                    {areAllSelected ? "Deselect All" : "Select All"}
+                  </Button>
+                </div>
 
                 <ScrollShadow className="max-h-[400px] space-y-2" hideScrollBar>
                   {filteredWebhooks.map((webhook) => (
                     <div key={webhook.id} className="group flex items-center gap-3 p-3 rounded-lg hover:bg-default-100 transition-background cursor-pointer" onClick={() => toggleWebhook(webhook.id)}>
-                      <Checkbox
-                        isSelected={selectedWebhooks.has(webhook.id.toString())}
-                        className="inline-flex"
-                        // Prevent checkbox from handling click to avoid double toggling
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                      <Checkbox isSelected={selectedWebhooks.has(webhook.id.toString())} className="inline-flex" onClick={(e) => e.stopPropagation()} />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-col gap-1">
                           <span className="font-medium">{webhook.name}</span>
