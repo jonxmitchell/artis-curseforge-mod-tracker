@@ -20,6 +20,7 @@ struct ModUpdateData {
     old_release_date: String,
     latest_file_name: String,
     logo_url: Option<String>,
+    page_url: Option<String>,
 }
 
 fn get_ordinal_suffix(day: u32) -> &'static str {
@@ -69,6 +70,8 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
         ("{lastestModFileName}", data.latest_file_name.clone()),
         ("{modAuthorName}", data.mod_author.clone()),
         ("{logoUrl}", data.logo_url.clone().unwrap_or_default()),
+        ("{modURL}", data.page_url.clone().unwrap_or_default()),
+
     ];
 
     for (key, value) in replacements {
@@ -268,6 +271,11 @@ pub async fn send_update_notification(
         old_release_date: format_date(&old_release_date),
         latest_file_name: latest_file_name.clone(),
         logo_url: logo_url.clone(),
+        page_url: conn.query_row(
+            "SELECT page_url FROM mods WHERE id = ?1",
+            [mod_id],
+            |row| row.get(0),
+        ).unwrap_or(None),
     };
 
     let mut embed = json!({

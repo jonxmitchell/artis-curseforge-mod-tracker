@@ -44,6 +44,7 @@ const TemplateVariablesHelp = () => {
     { name: "oldPreviousDate", description: "Previous update time" },
     { name: "lastestModFileName", description: "Latest mod file name" },
     { name: "modAuthorName", description: "Mod author name" },
+    { name: "modURL", description: "URL to mod page" },
   ];
 
   const discordVariables = [

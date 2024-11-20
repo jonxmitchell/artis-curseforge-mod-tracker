@@ -130,7 +130,7 @@ pub fn initialize_database(connection: &mut Connection) -> Result<()> {
                     {\"name\":\"Mod Name\",\"value\":\"{modName}\",\"inline\":true},
                     {\"name\":\"Author\",\"value\":\"{modAuthorName}\",\"inline\":true},
                     {\"name\":\"Last Updated\",\"value\":\"{newReleaseDate}\",\"inline\":true},
-                    {\"name\":\"Latest File\",\"value\":\"{modID}\",\"inline\":true}
+                    {\"name\":\"Latest File\",\"value\":\"{latestModFileName}\",\"inline\":true}
                 ]'
             )",
             [],
