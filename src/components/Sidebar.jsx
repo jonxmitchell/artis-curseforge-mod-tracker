@@ -9,7 +9,7 @@ import SettingsModal from "./Settings";
 import { open } from "@tauri-apps/api/shell";
 
 const SIDEBAR_STATE_KEY = "sidebar_collapsed_state";
-const APP_VERSION = "v0.9.8";
+const APP_VERSION = "v0.9.9";
 
 export default function Sidebar() {
   const router = useRouter();
