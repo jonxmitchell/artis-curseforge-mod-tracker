@@ -2,7 +2,8 @@
 
 import { Card, CardBody, Button, Chip, Tooltip, Link } from "@nextui-org/react";
 import { Trash2, Gamepad2, Clock, ExternalLink, Webhook } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
 
 function formatDate(dateString) {
   if (!dateString) {
@@ -42,6 +43,26 @@ function formatDate(dateString) {
 
 export default function ModCard({ mod, onDelete, onManageWebhooks }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [assignedWebhooks, setAssignedWebhooks] = useState([]);
+  const [isLoadingWebhooks, setIsLoadingWebhooks] = useState(false);
+
+  useEffect(() => {
+    if (mod?.id) {
+      loadAssignedWebhooks();
+    }
+  }, [mod?.id]);
+
+  const loadAssignedWebhooks = async () => {
+    try {
+      setIsLoadingWebhooks(true);
+      const webhooks = await invoke("get_mod_assigned_webhooks", { modId: mod.id });
+      setAssignedWebhooks(webhooks);
+    } catch (error) {
+      console.error("Failed to load assigned webhooks:", error);
+    } finally {
+      setIsLoadingWebhooks(false);
+    }
+  };
 
   if (!mod) {
     console.error("Invalid mod data:", mod);
@@ -64,6 +85,34 @@ export default function ModCard({ mod, onDelete, onManageWebhooks }) {
       setIsDeleting(false);
     }
   };
+
+  const WebhookTooltipContent = () => (
+    <div className="p-2">
+      <p className="text-sm mb-2">Assigned Webhooks:</p>
+      <div className="flex flex-wrap gap-1 max-w-xs">
+        {isLoadingWebhooks ? (
+          <span className="text-xs text-default-500">Loading...</span>
+        ) : assignedWebhooks.length === 0 ? (
+          <span className="text-xs text-default-500">No webhooks assigned</span>
+        ) : (
+          assignedWebhooks.map((webhook) => (
+            <Chip
+              key={webhook.id}
+              size="sm"
+              variant="flat"
+              color={webhook.enabled ? "success" : "default"}
+              classNames={{
+                base: webhook.enabled ? "bg-success-50" : "bg-default-100",
+                content: webhook.enabled ? "text-success-600" : "text-default-500",
+              }}
+            >
+              {webhook.name}
+            </Chip>
+          ))
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <Card className="group bg-content1/50 hover:bg-content2/80 transition-background">
@@ -105,9 +154,11 @@ export default function ModCard({ mod, onDelete, onManageWebhooks }) {
             <div className="h-4 w-[1px] bg-default-200" />
 
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="light" color="secondary" startContent={<Webhook size={14} />} onPress={() => onManageWebhooks(id)} className="px-2 font-normal">
-                Manage Webhooks
-              </Button>
+              <Tooltip content={<WebhookTooltipContent />}>
+                <Button size="sm" variant="light" color="secondary" startContent={<Webhook size={14} />} onPress={() => onManageWebhooks(id)} className="px-2 font-normal">
+                  Manage Webhooks {assignedWebhooks.length > 0 && `(${assignedWebhooks.length})`}
+                </Button>
+              </Tooltip>
 
               <Button size="sm" variant="light" color="danger" startContent={<Trash2 size={14} />} onPress={handleDelete} isLoading={isDeleting} isDisabled={isDeleting} className="px-2 font-normal opacity-0 group-hover:opacity-100 transition-opacity">
                 Delete
