@@ -1,6 +1,6 @@
 [package]
 name = "artis-curseforge-mod-tracker"
-version = "0.9.8"
+version = "1.0.0"
 description = "An application to help track mod updates in CurseForge"
 authors = ["you"]
 license = "MIT"
