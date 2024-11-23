@@ -23,6 +23,8 @@ pub struct CurseForgeModData {
     pub date_modified: String,
     #[serde(rename = "dateReleased")]
     pub date_released: String,
+    #[serde(rename = "dateCreated")]
+    pub date_created: String,
     pub authors: Vec<ModAuthor>,
     #[serde(rename = "latestFiles")]
     pub latest_files: Vec<ModFile>,
@@ -181,7 +183,7 @@ pub async fn add_mod(
         curseforge_id,
         name: curse_data.data.name.clone(),
         game_name: game_name.clone(),
-        last_updated: curse_data.data.date_modified.clone(),
+        last_updated: curse_data.data.date_released.clone(), // Changed from date_modified to date_released
         page_url: Some(page_url.clone()),
     };
 
@@ -200,7 +202,7 @@ pub async fn add_mod(
         metadata: Some(json!({
             "game": game_name,
             "curseforge_id": curseforge_id,
-            "initial_version_date": curse_data.data.date_modified,
+            "initial_version_date": curse_data.data.date_released, // Changed from date_modified to date_released
             "page_url": page_url,
         }).to_string()),
     };
@@ -248,7 +250,7 @@ pub async fn check_mod_update(
         .await
         .map_err(|e| e.to_string())?;
 
-    let new_date = curse_data.data.date_modified.clone();
+    let new_date = curse_data.data.date_released.clone(); // Changed from date_modified to date_released
 
     if new_date != current_last_updated {
         let db_path = get_database_path(&app_handle);
