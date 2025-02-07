@@ -1,8 +1,30 @@
 import React, { useState, useEffect } from "react";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input, Select, SelectItem, Divider } from "@nextui-org/react";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Input,
+  Select,
+  SelectItem,
+  Divider,
+  Checkbox,
+} from "@nextui-org/react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { emit } from "@tauri-apps/api/event";
-import { Key, Lock, Clock, Eye, EyeOff, AlertCircle, Save, ExternalLink } from "lucide-react";
+import {
+  Key,
+  Lock,
+  Clock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Save,
+  ExternalLink,
+  MinimizeIcon,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { open } from "@tauri-apps/api/shell";
 
@@ -25,6 +47,8 @@ export default function Settings({ isOpen, onClose }) {
   const [isSaving, setIsSaving] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState(null);
+  const [minimizeToTray, setMinimizeToTray] = useState(false);
+  const [closeToTray, setCloseToTray] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,9 +60,16 @@ export default function Settings({ isOpen, onClose }) {
     try {
       setIsLoading(true);
       setError(null);
-      const [key, interval] = await Promise.all([invoke("get_api_key"), invoke("get_update_interval")]);
+      const [key, interval, minToTray, closeToTray] = await Promise.all([
+        invoke("get_api_key"),
+        invoke("get_update_interval"),
+        invoke("get_minimize_to_tray"),
+        invoke("get_close_to_tray"),
+      ]);
       setApiKey(key || "");
       setUpdateInterval(interval.toString());
+      setMinimizeToTray(minToTray);
+      setCloseToTray(closeToTray);
     } catch (error) {
       console.error("Failed to load settings:", error);
       setError("Failed to load settings. Please try again.");
@@ -51,7 +82,12 @@ export default function Settings({ isOpen, onClose }) {
     try {
       setIsSaving(true);
       setError(null);
-      await Promise.all([invoke("set_api_key", { apiKey }), invoke("set_update_interval", { interval: parseInt(updateInterval) })]);
+      await Promise.all([
+        invoke("set_api_key", { apiKey }),
+        invoke("set_update_interval", { interval: parseInt(updateInterval) }),
+        invoke("set_minimize_to_tray", { enabled: minimizeToTray }),
+        invoke("set_close_to_tray", { enabled: closeToTray }),
+      ]);
       emit("update_interval_changed", { interval: parseInt(updateInterval) });
       onClose();
     } catch (error) {
@@ -85,13 +121,19 @@ export default function Settings({ isOpen, onClose }) {
     >
       <ModalContent>
         <ModalHeader>
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-3"
+          >
             <div className="p-2 rounded-xl bg-primary/10">
               <Key size={18} className="text-primary" />
             </div>
             <div>
               <h2 className="text-xl font-bold">Settings</h2>
-              <p className="text-sm text-default-500">Configure your application preferences</p>
+              <p className="text-sm text-default-500">
+                Configure your application preferences
+              </p>
             </div>
           </motion.div>
         </ModalHeader>
@@ -102,9 +144,18 @@ export default function Settings({ isOpen, onClose }) {
               <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
               {error && (
-                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 p-4 rounded-xl border border-danger-200 bg-danger-50/10 text-danger">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-2 p-4 rounded-xl border border-danger-200 bg-danger-50/10 text-danger"
+                >
                   <AlertCircle size={18} />
                   <p className="text-sm">{error}</p>
                 </motion.div>
@@ -116,9 +167,17 @@ export default function Settings({ isOpen, onClose }) {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Lock size={16} className="text-primary" />
-                      <h3 className="text-sm font-medium">CurseForge API Key</h3>
+                      <h3 className="text-sm font-medium">
+                        CurseForge API Key
+                      </h3>
                     </div>
-                    <Button size="sm" variant="flat" onPress={openApiKeyPage} endContent={<ExternalLink size={16} />} className="text-primary font-medium bg-primary/10 hover:bg-primary/20">
+                    <Button
+                      size="sm"
+                      variant="flat"
+                      onPress={openApiKeyPage}
+                      endContent={<ExternalLink size={16} />}
+                      className="text-primary font-medium bg-primary/10 hover:bg-primary/20"
+                    >
                       Get API Key
                     </Button>
                   </div>
@@ -129,7 +188,12 @@ export default function Settings({ isOpen, onClose }) {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     endContent={
-                      <Button isIconOnly variant="light" onPress={() => setShowKey(!showKey)} className="text-default-400 hover:text-primary">
+                      <Button
+                        isIconOnly
+                        variant="light"
+                        onPress={() => setShowKey(!showKey)}
+                        className="text-default-400 hover:text-primary"
+                      >
                         {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                       </Button>
                     }
@@ -143,7 +207,9 @@ export default function Settings({ isOpen, onClose }) {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock size={16} className="text-primary" />
-                    <h3 className="text-sm font-medium">Update Check Interval</h3>
+                    <h3 className="text-sm font-medium">
+                      Update Check Interval
+                    </h3>
                   </div>
                   <Select
                     label="Check Frequency"
@@ -153,18 +219,67 @@ export default function Settings({ isOpen, onClose }) {
                     classNames={{
                       base: "max-w-full",
                       mainWrapper: "h-12",
-                      trigger: "h-12 bg-default-100/50 hover:bg-default-200/50 transition-background",
+                      trigger:
+                        "h-12 bg-default-100/50 hover:bg-default-200/50 transition-background",
                       value: "text-small",
                       label: "text-default-600 font-medium",
                       description: "text-tiny text-default-400",
                     }}
                   >
                     {UPDATE_INTERVALS.map((interval) => (
-                      <SelectItem key={interval.value} value={interval.value} className="text-small">
+                      <SelectItem
+                        key={interval.value}
+                        value={interval.value}
+                        className="text-small"
+                      >
                         {interval.label}
                       </SelectItem>
                     ))}
                   </Select>
+                </div>
+
+                <Divider />
+
+                {/* System Tray Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MinimizeIcon size={16} className="text-primary" />
+                    <h3 className="text-sm font-medium">
+                      System Tray Settings
+                    </h3>
+                  </div>
+                  <div className="space-y-4">
+                    <Checkbox
+                      isSelected={minimizeToTray}
+                      onValueChange={setMinimizeToTray}
+                      classNames={{
+                        wrapper: "inline-flex",
+                      }}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm">Minimize to System Tray</span>
+                        <span className="text-xs text-default-400">
+                          When minimizing the window, hide it to the system tray
+                          instead
+                        </span>
+                      </div>
+                    </Checkbox>
+                    <Checkbox
+                      isSelected={closeToTray}
+                      onValueChange={setCloseToTray}
+                      classNames={{
+                        wrapper: "inline-flex",
+                      }}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm">Close to System Tray</span>
+                        <span className="text-xs text-default-400">
+                          When closing the window, show a confirmation dialog to
+                          minimize to tray or quit
+                        </span>
+                      </div>
+                    </Checkbox>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -173,10 +288,21 @@ export default function Settings({ isOpen, onClose }) {
 
         <ModalFooter className="px-6 py-4">
           <div className="flex gap-2">
-            <Button variant="flat" onPress={onClose} className="font-medium bg-default-100 hover:bg-default-200">
+            <Button
+              variant="flat"
+              onPress={onClose}
+              className="font-medium bg-default-100 hover:bg-default-200"
+            >
               Cancel
             </Button>
-            <Button color="primary" onPress={handleSave} isLoading={isSaving} isDisabled={isLoading || !apiKey} className="font-medium bg-primary hover:bg-primary-500" startContent={!isSaving && <Save size={18} />}>
+            <Button
+              color="primary"
+              onPress={handleSave}
+              isLoading={isSaving}
+              isDisabled={isLoading || !apiKey}
+              className="font-medium bg-primary hover:bg-primary-500"
+              startContent={!isSaving && <Save size={18} />}
+            >
               Save Changes
             </Button>
           </div>

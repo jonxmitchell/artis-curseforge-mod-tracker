@@ -11,6 +11,10 @@
     "version": "1.0.0"
   },
   "tauri": {
+    "systemTray": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true
+    },
     "allowlist": {
       "all": false,
       "shell": {
@@ -20,6 +24,10 @@
       "clipboard": {
         "all": true,
         "writeText": true
+      },
+      "window": {
+        "all": true,
+        "minimize": true
       }
     },
     "bundle": {

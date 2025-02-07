@@ -1,16 +1,18 @@
-use rusqlite::{Connection, Result, params};
-use serde::{Serialize, Deserialize};
+use rusqlite::{params, Connection, Result};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Settings {
     pub api_key: Option<String>,
     pub update_interval: i64,
     pub show_quick_start: bool,
+    pub minimize_to_tray: bool,
+    pub close_to_tray: bool,
 }
 
 pub fn initialize_settings_table(conn: &mut Connection) -> Result<()> {
     println!("Initializing settings table...");
-    
+
     // Create settings table if it doesn't exist
     conn.execute(
         "CREATE TABLE IF NOT EXISTS settings (
@@ -19,10 +21,10 @@ pub fn initialize_settings_table(conn: &mut Connection) -> Result<()> {
         )",
         [],
     )?;
-    
+
     // Insert default settings using a transaction
     let tx = conn.transaction()?;
-    
+
     // Insert default values if they don't exist
     tx.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('api_key', NULL)",
@@ -39,6 +41,16 @@ pub fn initialize_settings_table(conn: &mut Connection) -> Result<()> {
         [],
     )?;
 
+    tx.execute(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('minimize_to_tray', 'false')",
+        [],
+    )?;
+
+    tx.execute(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('close_to_tray', 'false')",
+        [],
+    )?;
+
     tx.commit()?;
     println!("Settings table initialized successfully");
     Ok(())
@@ -49,7 +61,7 @@ pub fn get_api_key(conn: &Connection) -> Result<Option<String>> {
     match conn.query_row(
         "SELECT value FROM settings WHERE key = 'api_key'",
         [],
-        |row| row.get::<_, Option<String>>(0)
+        |row| row.get::<_, Option<String>>(0),
     ) {
         Ok(value) => {
             println!("API key fetched successfully: {:?}", value.is_some());
@@ -67,13 +79,11 @@ pub fn get_update_interval(conn: &Connection) -> Result<i64> {
     let value: Option<String> = conn.query_row(
         "SELECT value FROM settings WHERE key = 'update_interval'",
         [],
-        |row| row.get::<_, Option<String>>(0)
+        |row| row.get::<_, Option<String>>(0),
     )?;
-    
-    let interval = value
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(30);
-    
+
+    let interval = value.and_then(|v| v.parse::<i64>().ok()).unwrap_or(30);
+
     println!("Update interval fetched: {}", interval);
     Ok(interval)
 }
@@ -103,13 +113,11 @@ pub fn get_show_quick_start(conn: &Connection) -> Result<bool> {
     let value: Option<String> = conn.query_row(
         "SELECT value FROM settings WHERE key = 'show_quick_start'",
         [],
-        |row| row.get::<_, Option<String>>(0)
+        |row| row.get::<_, Option<String>>(0),
     )?;
-    
-    let show = value
-        .and_then(|v| v.parse::<bool>().ok())
-        .unwrap_or(true);
-    
+
+    let show = value.and_then(|v| v.parse::<bool>().ok()).unwrap_or(true);
+
     println!("Quick start setting fetched: {}", show);
     Ok(show)
 }
@@ -121,5 +129,53 @@ pub fn set_show_quick_start(conn: &Connection, show: bool) -> Result<()> {
         params![show.to_string()],
     )?;
     println!("Quick start setting set successfully");
+    Ok(())
+}
+
+pub fn get_minimize_to_tray(conn: &Connection) -> Result<bool> {
+    println!("Fetching minimize to tray setting from database...");
+    let value: Option<String> = conn.query_row(
+        "SELECT value FROM settings WHERE key = 'minimize_to_tray'",
+        [],
+        |row| row.get::<_, Option<String>>(0),
+    )?;
+
+    let enabled = value.and_then(|v| v.parse::<bool>().ok()).unwrap_or(false);
+
+    println!("Minimize to tray setting fetched: {}", enabled);
+    Ok(enabled)
+}
+
+pub fn set_minimize_to_tray(conn: &Connection, enabled: bool) -> Result<()> {
+    println!("Setting minimize to tray in database: {}", enabled);
+    conn.execute(
+        "UPDATE settings SET value = ?1 WHERE key = 'minimize_to_tray'",
+        params![enabled.to_string()],
+    )?;
+    println!("Minimize to tray setting set successfully");
+    Ok(())
+}
+
+pub fn get_close_to_tray(conn: &Connection) -> Result<bool> {
+    println!("Fetching close to tray setting from database...");
+    let value: Option<String> = conn.query_row(
+        "SELECT value FROM settings WHERE key = 'close_to_tray'",
+        [],
+        |row| row.get::<_, Option<String>>(0),
+    )?;
+
+    let enabled = value.and_then(|v| v.parse::<bool>().ok()).unwrap_or(false);
+
+    println!("Close to tray setting fetched: {}", enabled);
+    Ok(enabled)
+}
+
+pub fn set_close_to_tray(conn: &Connection, enabled: bool) -> Result<()> {
+    println!("Setting close to tray in database: {}", enabled);
+    conn.execute(
+        "UPDATE settings SET value = ?1 WHERE key = 'close_to_tray'",
+        params![enabled.to_string()],
+    )?;
+    println!("Close to tray setting set successfully");
     Ok(())
 }
