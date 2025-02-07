@@ -18,8 +18,8 @@ ${StrLoc}
 
 !define MANUFACTURER "arti"
 !define PRODUCTNAME "artis-curseforge-mod-tracker"
-!define VERSION "1.0.0"
-!define VERSIONWITHBUILD "1.0.0.0"
+!define VERSION "1.0.1"
+!define VERSIONWITHBUILD "1.0.1.0"
 !define SHORTDESCRIPTION ""
 !define INSTALLMODE "currentUser"
 !define LICENSE ""

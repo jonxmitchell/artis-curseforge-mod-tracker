@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "artis-curseforge-mod-tracker",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "tauri": {
     "systemTray": {
@@ -70,7 +70,7 @@
     },
     "windows": [
       {
-        "title": "Arti's CurseForge Mod Update Tracker (v1.0.0)",
+        "title": "Arti's CurseForge Mod Update Tracker (v1.0.1)",
         "width": 1300,
         "height": 900,
         "minWidth": 900,
