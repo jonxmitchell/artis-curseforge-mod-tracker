@@ -55,6 +55,7 @@ export function useModUpdateChecker() {
               modId: updateInfo.mod_id,
               curseforgeId: updateInfo.curseforge_id,
               logoUrl: updateInfo.logo_url,
+              changelog: updateInfo.changelog,
             });
             console.log(`Successfully sent notification to webhook: ${webhook.name}`);
           } catch (error) {

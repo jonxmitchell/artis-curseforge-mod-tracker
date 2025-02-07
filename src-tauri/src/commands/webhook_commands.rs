@@ -1,13 +1,13 @@
 use crate::database::{
-    webhooks, Webhook,
+    activities::{add_activity, Activity},
+    ensure_database_exists, get_database_path,
     webhook_templates::get_webhook_template,
-    activities::{Activity, add_activity},
-    get_database_path, ensure_database_exists,
+    webhooks, Webhook,
 };
+use chrono::{DateTime, Datelike, Utc};
 use reqwest::Client;
-use serde_json::json;
-use chrono::{DateTime, Utc, Datelike};
 use rusqlite::Connection;
+use serde_json::json;
 use tauri::AppHandle;
 
 #[derive(Debug)]
@@ -21,6 +21,7 @@ struct ModUpdateData {
     latest_file_name: String,
     logo_url: Option<String>,
     page_url: Option<String>,
+    changelog: Option<String>,
 }
 
 fn get_ordinal_suffix(day: u32) -> &'static str {
@@ -40,7 +41,7 @@ fn format_date(date_str: &str) -> String {
         let utc_date: DateTime<Utc> = date.into();
         let day = utc_date.day();
         let suffix = get_ordinal_suffix(day);
-        
+
         format!(
             "{}{} {} {} at {:02}:{:02} UTC",
             day,
@@ -57,11 +58,11 @@ fn format_date(date_str: &str) -> String {
 
 fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
     let mut result = text.to_string();
-    
+
     // Basic replacements
     let replacements = vec![
-        ("{modID}", data.curseforge_id.to_string()),  // Use CurseForge ID for modID
-        ("{modDatabaseID}", data.mod_id.to_string()), // Add database ID as alternative
+        ("{modID}", data.curseforge_id.to_string()),
+        ("{modDatabaseID}", data.mod_id.to_string()),
         ("{modName}", data.mod_name.clone()),
         ("{newReleaseDate}", data.new_release_date.clone()),
         ("{oldPreviousDate}", data.old_release_date.clone()),
@@ -71,7 +72,7 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
         ("{modAuthorName}", data.mod_author.clone()),
         ("{logoUrl}", data.logo_url.clone().unwrap_or_default()),
         ("{modURL}", data.page_url.clone().unwrap_or_default()),
-
+        ("{changelog}", data.changelog.clone().unwrap_or_default()),
     ];
 
     for (key, value) in replacements {
@@ -109,7 +110,7 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
 pub fn add_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<Webhook, String> {
     let db_path = get_database_path(&app_handle);
     ensure_database_exists(&db_path).map_err(|e| e.to_string())?;
-    
+
     let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
     let webhook_id = webhooks::insert_webhook(&mut conn, &webhook).map_err(|e| e.to_string())?;
 
@@ -121,16 +122,19 @@ pub fn add_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<Webhook, S
         mod_name: None,
         description: format!("Added webhook \"{}\"", webhook.name),
         timestamp: Utc::now(),
-        metadata: Some(json!({
-            "webhook_name": webhook.name,
-            "webhook_id": webhook_id,
-        }).to_string()),
+        metadata: Some(
+            json!({
+                "webhook_name": webhook.name,
+                "webhook_id": webhook_id,
+            })
+            .to_string(),
+        ),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
     let mut new_webhook = webhook;
     new_webhook.id = Some(webhook_id);
-    
+
     Ok(new_webhook)
 }
 
@@ -155,10 +159,13 @@ pub fn update_webhook(app_handle: AppHandle, webhook: Webhook) -> Result<(), Str
         mod_name: None,
         description: format!("Updated webhook \"{}\"", webhook.name),
         timestamp: Utc::now(),
-        metadata: Some(json!({
-            "webhook_name": webhook.name,
-            "webhook_id": webhook.id,
-        }).to_string()),
+        metadata: Some(
+            json!({
+                "webhook_name": webhook.name,
+                "webhook_id": webhook.id,
+            })
+            .to_string(),
+        ),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
@@ -171,11 +178,13 @@ pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), Stri
     let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
     // Get webhook info before deletion
-    let webhook_name: String = conn.query_row(
-        "SELECT name FROM webhooks WHERE id = ?1",
-        [webhook_id],
-        |row| row.get(0),
-    ).map_err(|e| e.to_string())?;
+    let webhook_name: String = conn
+        .query_row(
+            "SELECT name FROM webhooks WHERE id = ?1",
+            [webhook_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Delete the webhook
     webhooks::delete_webhook(&mut conn, webhook_id).map_err(|e| e.to_string())?;
@@ -188,10 +197,13 @@ pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), Stri
         mod_name: None,
         description: format!("Removed webhook \"{}\"", webhook_name),
         timestamp: Utc::now(),
-        metadata: Some(json!({
-            "webhook_name": webhook_name,
-            "webhook_id": webhook_id,
-        }).to_string()),
+        metadata: Some(
+            json!({
+                "webhook_name": webhook_name,
+                "webhook_id": webhook_id,
+            })
+            .to_string(),
+        ),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
@@ -201,7 +213,7 @@ pub fn delete_webhook(app_handle: AppHandle, webhook_id: i64) -> Result<(), Stri
 #[tauri::command]
 pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
     let client = Client::new();
-    
+
     let mut payload = json!({
         "embeds": [{
             "title": "🧪 Test Message",
@@ -214,7 +226,8 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
         }]
     });
 
-    payload["username"] = json!(webhook.username
+    payload["username"] = json!(webhook
+        .username
         .and_then(|u| if u.trim().is_empty() { None } else { Some(u) })
         .unwrap_or_else(|| "Mod Tracker".to_string()));
 
@@ -224,7 +237,10 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
         }
     }
 
-    println!("Sending test webhook payload: {}", serde_json::to_string_pretty(&payload).unwrap());
+    println!(
+        "Sending test webhook payload: {}",
+        serde_json::to_string_pretty(&payload).unwrap()
+    );
 
     let response = client
         .post(&webhook.url)
@@ -234,7 +250,10 @@ pub async fn test_webhook(webhook: Webhook) -> Result<bool, String> {
         .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
         println!("Discord API error: {}", error_text);
         return Err(format!("Discord API error: {}", error_text));
     }
@@ -254,13 +273,14 @@ pub async fn send_update_notification(
     mod_id: i64,
     curseforge_id: i64,
     logo_url: Option<String>,
+    changelog: Option<String>,
 ) -> Result<bool, String> {
     let client = Client::new();
-    
+
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    let template = get_webhook_template(&conn, webhook.id.unwrap_or(-1))
-        .map_err(|e| e.to_string())?;
+    let template =
+        get_webhook_template(&conn, webhook.id.unwrap_or(-1)).map_err(|e| e.to_string())?;
 
     let update_data = ModUpdateData {
         mod_id,
@@ -271,11 +291,12 @@ pub async fn send_update_notification(
         old_release_date: format_date(&old_release_date),
         latest_file_name: latest_file_name.clone(),
         logo_url: logo_url.clone(),
-        page_url: conn.query_row(
-            "SELECT page_url FROM mods WHERE id = ?1",
-            [mod_id],
-            |row| row.get(0),
-        ).unwrap_or(None),
+        page_url: conn
+            .query_row("SELECT page_url FROM mods WHERE id = ?1", [mod_id], |row| {
+                row.get(0)
+            })
+            .unwrap_or(None),
+        changelog,
     };
 
     let mut embed = json!({
@@ -318,9 +339,15 @@ pub async fn send_update_notification(
         }
     }
 
-    if template.footer_text.as_ref().map_or(false, |t| !t.trim().is_empty()) 
-        || template.footer_icon_url.as_ref().map_or(false, |u| !u.trim().is_empty()) 
-        || template.include_timestamp 
+    if template
+        .footer_text
+        .as_ref()
+        .map_or(false, |t| !t.trim().is_empty())
+        || template
+            .footer_icon_url
+            .as_ref()
+            .map_or(false, |u| !u.trim().is_empty())
+        || template.include_timestamp
     {
         let mut footer = json!({});
         if let Some(text) = &template.footer_text {
@@ -355,12 +382,16 @@ pub async fn send_update_notification(
     if template.use_embed {
         payload["embeds"] = json!([embed]);
     } else {
-        let content = template.content
+        let content = template
+            .content
             .unwrap_or_else(|| "🔄 Mod Update Available!".to_string());
         payload["content"] = json!(replace_template_variables(&content, &update_data));
     }
 
-    println!("Sending webhook payload: {}", serde_json::to_string_pretty(&payload).unwrap());
+    println!(
+        "Sending webhook payload: {}",
+        serde_json::to_string_pretty(&payload).unwrap()
+    );
 
     let response = client
         .post(&webhook.url)
@@ -371,7 +402,12 @@ pub async fn send_update_notification(
 
     let result = response.status().is_success();
     let error_text = if !result {
-        Some(response.text().await.unwrap_or_else(|_| "Unknown error".to_string()))
+        Some(
+            response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string()),
+        )
     } else {
         None
     };
@@ -379,20 +415,33 @@ pub async fn send_update_notification(
     // Log activity for notification result
     let activity = Activity {
         id: None,
-        activity_type: if result { "notification_sent".to_string() } else { "webhook_error".to_string() },
+        activity_type: if result {
+            "notification_sent".to_string()
+        } else {
+            "webhook_error".to_string()
+        },
         mod_id: Some(mod_id),
         mod_name: Some(mod_name.clone()),
         description: if result {
-            format!("Sent update notification for \"{}\" to webhook \"{}\"", mod_name, webhook.name)
+            format!(
+                "Sent update notification for \"{}\" to webhook \"{}\"",
+                mod_name, webhook.name
+            )
         } else {
-            format!("Failed to send update notification for \"{}\" to webhook \"{}\"", mod_name, webhook.name)
+            format!(
+                "Failed to send update notification for \"{}\" to webhook \"{}\"",
+                mod_name, webhook.name
+            )
         },
         timestamp: Utc::now(),
-        metadata: Some(json!({
-            "webhook_name": webhook.name,
-            "webhook_id": webhook.id,
-            "error": error_text,
-        }).to_string()),
+        metadata: Some(
+            json!({
+                "webhook_name": webhook.name,
+                "webhook_id": webhook.id,
+                "error": error_text,
+            })
+            .to_string(),
+        ),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 

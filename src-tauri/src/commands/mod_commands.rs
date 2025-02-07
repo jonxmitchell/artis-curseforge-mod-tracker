@@ -1,14 +1,15 @@
 use crate::database::{
+    activities::{add_activity, Activity},
+    ensure_database_exists, get_database_path,
     mods::{self, Mod, ModWithWebhooks},
-    activities::{Activity, add_activity},
-    get_database_path, ensure_database_exists,
 };
-use rusqlite::{Connection, Result, params, OptionalExtension};
-use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
-use reqwest::header::HeaderMap;
 use chrono::Utc;
+use html_escape;
+use reqwest::header::HeaderMap;
+use rusqlite::{params, Connection, OptionalExtension, Result};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tauri::AppHandle;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CurseForgeResponse {
@@ -32,6 +33,8 @@ pub struct CurseForgeModData {
     pub game_id: i64,
     pub logo: Option<ModLogo>,
     pub links: ModLinks,
+    #[serde(rename = "mainFileId")]
+    pub main_file_id: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,6 +83,7 @@ pub struct ModUpdateInfo {
     pub mod_author: String,
     pub latest_file_name: String,
     pub logo_url: Option<String>,
+    pub changelog: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -93,14 +97,15 @@ pub struct CurseForgeGameData {
     name: String,
 }
 
-async fn get_game_name(client: &reqwest::Client, game_id: i64, api_key: &str) -> Result<String, String> {
+async fn get_game_name(
+    client: &reqwest::Client,
+    game_id: i64,
+    api_key: &str,
+) -> Result<String, String> {
     let mut headers = HeaderMap::new();
     headers.insert("x-api-key", api_key.parse().unwrap());
 
-    let url = format!(
-        "https://api.curseforge.com/v1/games/{}", 
-        game_id
-    );
+    let url = format!("https://api.curseforge.com/v1/games/{}", game_id);
 
     let response = client
         .get(url)
@@ -110,13 +115,13 @@ async fn get_game_name(client: &reqwest::Client, game_id: i64, api_key: &str) ->
         .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to fetch game details: {}", response.status()));
+        return Err(format!(
+            "Failed to fetch game details: {}",
+            response.status()
+        ));
     }
 
-    let game_data: CurseForgeGameResponse = response
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
+    let game_data: CurseForgeGameResponse = response.json().await.map_err(|e| e.to_string())?;
 
     Ok(game_data.data.name)
 }
@@ -129,12 +134,12 @@ pub async fn add_mod(
 ) -> Result<ModWithWebhooks, String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    
+
     // Check for existing mod
     let existing_mod = conn.query_row(
         "SELECT id FROM mods WHERE curseforge_id = ?1",
         [curseforge_id],
-        |_| Ok(())
+        |_| Ok(()),
     );
 
     if let Ok(_) = existing_mod {
@@ -147,10 +152,7 @@ pub async fn add_mod(
     headers.insert("x-api-key", api_key.parse().unwrap());
 
     // Fetch mod data
-    let url = format!(
-        "https://api.curseforge.com/v1/mods/{}", 
-        curseforge_id
-    );
+    let url = format!("https://api.curseforge.com/v1/mods/{}", curseforge_id);
 
     let response = client
         .get(url)
@@ -163,32 +165,35 @@ pub async fn add_mod(
         if response.status().as_u16() == 404 {
             return Err("Mod not found on CurseForge.".to_string());
         }
-        return Err(format!("Failed to fetch mod from CurseForge: {}", response.status()));
+        return Err(format!(
+            "Failed to fetch mod from CurseForge: {}",
+            response.status()
+        ));
     }
 
-    let curse_data: CurseForgeResponse = response
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
+    let curse_data: CurseForgeResponse = response.json().await.map_err(|e| e.to_string())?;
 
     // Get page URL from the response
     let page_url = curse_data.data.links.website_url.unwrap_or_default();
 
     // Fetch game name
     let game_name = get_game_name(&client, curse_data.data.game_id, &api_key).await?;
-    println!("Found game: {} (ID: {})", game_name, curse_data.data.game_id);
+    println!(
+        "Found game: {} (ID: {})",
+        game_name, curse_data.data.game_id
+    );
 
     let mod_data = Mod {
         id: None,
         curseforge_id,
         name: curse_data.data.name.clone(),
         game_name: game_name.clone(),
-        last_updated: curse_data.data.date_released.clone(), // Changed from date_modified to date_released
+        last_updated: curse_data.data.date_released.clone(),
         page_url: Some(page_url.clone()),
     };
 
     ensure_database_exists(&db_path).map_err(|e| e.to_string())?;
-    
+
     let mod_id = mods::insert_mod(&conn, &mod_data).map_err(|e| e.to_string())?;
 
     // Log activity for mod addition
@@ -199,12 +204,15 @@ pub async fn add_mod(
         mod_name: Some(curse_data.data.name.clone()),
         description: format!("Added mod \"{}\"", curse_data.data.name),
         timestamp: Utc::now(),
-        metadata: Some(json!({
-            "game": game_name,
-            "curseforge_id": curseforge_id,
-            "initial_version_date": curse_data.data.date_released, // Changed from date_modified to date_released
-            "page_url": page_url,
-        }).to_string()),
+        metadata: Some(
+            json!({
+                "game": game_name,
+                "curseforge_id": curseforge_id,
+                "initial_version_date": curse_data.data.date_released,
+                "page_url": page_url,
+            })
+            .to_string(),
+        ),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
@@ -229,41 +237,76 @@ pub async fn check_mod_update(
     let mut headers = HeaderMap::new();
     headers.insert("x-api-key", api_key.parse().unwrap());
 
-    let url = format!(
-        "https://api.curseforge.com/v1/mods/{}", 
-        curseforge_id
-    );
+    let url = format!("https://api.curseforge.com/v1/mods/{}", curseforge_id);
 
     let response = client
-        .get(url)
-        .headers(headers)
+        .get(&url)
+        .headers(headers.clone())
         .send()
         .await
         .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to fetch mod from CurseForge: {}", response.status()));
+        return Err(format!(
+            "Failed to fetch mod from CurseForge: {}",
+            response.status()
+        ));
     }
 
-    let curse_data: CurseForgeResponse = response
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
+    let curse_data: CurseForgeResponse = response.json().await.map_err(|e| e.to_string())?;
 
-    let new_date = curse_data.data.date_released.clone(); // Changed from date_modified to date_released
+    let new_date = curse_data.data.date_released.clone();
 
     if new_date != current_last_updated {
         let db_path = get_database_path(&app_handle);
         let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-        
-        mods::update_mod_last_updated(&conn, mod_id, &new_date)
+
+        // Get changelog for the latest file
+        let changelog_url = format!(
+            "https://api.curseforge.com/v1/mods/{}/files/{}/changelog",
+            curseforge_id, curse_data.data.main_file_id
+        );
+
+        let changelog_response = client
+            .get(&changelog_url)
+            .headers(headers.clone())
+            .send()
+            .await
             .map_err(|e| e.to_string())?;
 
+        let changelog_text = if changelog_response.status().is_success() {
+            let changelog: serde_json::Value =
+                changelog_response.json().await.map_err(|e| e.to_string())?;
+
+            changelog["data"].as_str().map(|html| {
+                html_escape::decode_html_entities(html)
+                    .to_string()
+                    .replace(|c: char| !c.is_ascii() && !c.is_whitespace(), "")
+                    .replace("<p>", "") // Remove opening p tags
+                    .replace("</p>", "\n") // Replace closing p tags with newlines
+                    .replace("<br>", "\n") // Replace br tags with newlines
+                    .replace("<br/>", "\n") // Replace self-closing br tags
+                    .replace("<br />", "\n") // Replace self-closing br tags with space
+                    .trim() // Remove any leading/trailing whitespace
+                    .to_string()
+            })
+        } else {
+            None
+        };
+
+        mods::update_mod_last_updated(&conn, mod_id, &new_date).map_err(|e| e.to_string())?;
+
         // Extract the latest file info
-        let latest_file = curse_data.data.latest_files.first()
+        let latest_file = curse_data
+            .data
+            .latest_files
+            .first()
             .ok_or_else(|| "No files found for mod".to_string())?;
 
-        let author_name = curse_data.data.authors.first()
+        let author_name = curse_data
+            .data
+            .authors
+            .first()
             .map(|author| author.name.clone())
             .unwrap_or_else(|| "Unknown Author".to_string());
 
@@ -278,17 +321,20 @@ pub async fn check_mod_update(
             mod_name: Some(curse_data.data.name.clone()),
             description: format!("\"{}\" has been updated", curse_data.data.name),
             timestamp: Utc::now(),
-            metadata: Some(json!({
-                "old_version_date": current_last_updated,
-                "new_version_date": new_date,
-                "author": author_name.clone(),
-                "latest_file": latest_file.file_name.clone(),
-                "logo_url": logo_url,
-                "page_url": curse_data.data.links.website_url,
-            }).to_string()),
+            metadata: Some(
+                json!({
+                    "old_version_date": current_last_updated,
+                    "new_version_date": new_date,
+                    "author": author_name.clone(),
+                    "latest_file": latest_file.file_name.clone(),
+                    "logo_url": logo_url,
+                    "page_url": curse_data.data.links.website_url,
+                    "changelog": changelog_text,
+                })
+                .to_string(),
+            ),
         };
-        add_activity(Some(&app_handle), &conn, &activity)
-            .map_err(|e| e.to_string())?;
+        add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
         Ok(Some(ModUpdateInfo {
             mod_id,
@@ -299,6 +345,7 @@ pub async fn check_mod_update(
             mod_author: author_name,
             latest_file_name: latest_file.file_name.clone(),
             logo_url,
+            changelog: changelog_text,
         }))
     } else {
         Ok(None)
@@ -317,21 +364,25 @@ pub fn get_mods(app_handle: AppHandle) -> Result<Vec<ModWithWebhooks>, String> {
 pub fn delete_mod(app_handle: AppHandle, mod_id: i64) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    
+
     // Enable foreign key support
-    conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
-    
+    conn.execute("PRAGMA foreign_keys = ON", [])
+        .map_err(|e| e.to_string())?;
+
     // Start a transaction
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    
+
     println!("Starting mod deletion process for mod_id: {}", mod_id);
-    
+
     // Get mod info before deletion for activity log
-    let mod_info: Option<(String, String)> = tx.query_row(
-        "SELECT name, game_name FROM mods WHERE id = ?1",
-        params![mod_id],
-        |row| Ok((row.get(0)?, row.get(1)?))
-    ).optional().map_err(|e| e.to_string())?;
+    let mod_info: Option<(String, String)> = tx
+        .query_row(
+            "SELECT name, game_name FROM mods WHERE id = ?1",
+            params![mod_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
 
     if let Some((name, game_name)) = mod_info {
         // Clear relations first
@@ -339,20 +390,20 @@ pub fn delete_mod(app_handle: AppHandle, mod_id: i64) -> Result<(), String> {
         tx.execute(
             "DELETE FROM mod_webhook_assignments WHERE mod_id = ?1",
             params![mod_id],
-        ).map_err(|e| format!("Failed to delete webhook assignments: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to delete webhook assignments: {}", e))?;
 
         println!("Updating activities...");
         tx.execute(
             "UPDATE activities SET mod_id = NULL WHERE mod_id = ?1",
             params![mod_id],
-        ).map_err(|e| format!("Failed to update activities: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to update activities: {}", e))?;
 
         // Delete the mod
         println!("Deleting mod {}...", name);
-        tx.execute(
-            "DELETE FROM mods WHERE id = ?1",
-            params![mod_id],
-        ).map_err(|e| format!("Failed to delete mod: {}", e))?;
+        tx.execute("DELETE FROM mods WHERE id = ?1", params![mod_id])
+            .map_err(|e| format!("Failed to delete mod: {}", e))?;
 
         // Add deletion activity
         println!("Logging deletion activity...");
@@ -369,13 +420,16 @@ pub fn delete_mod(app_handle: AppHandle, mod_id: i64) -> Result<(), String> {
                 json!({
                     "game": game_name,
                     "deleted_mod_id": mod_id
-                }).to_string(),
+                })
+                .to_string(),
             ],
-        ).map_err(|e| format!("Failed to log activity: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to log activity: {}", e))?;
 
         println!("Committing transaction...");
-        tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
-        
+        tx.commit()
+            .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+
         println!("Mod deletion completed successfully");
         Ok(())
     } else {
@@ -389,17 +443,19 @@ pub fn assign_webhook(app_handle: AppHandle, mod_id: i64, webhook_id: i64) -> Re
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
     // Get mod and webhook info for activity log
-    let mod_name: String = conn.query_row(
-        "SELECT name FROM mods WHERE id = ?1",
-        [mod_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let mod_name: String = conn
+        .query_row("SELECT name FROM mods WHERE id = ?1", [mod_id], |row| {
+            row.get(0)
+        })
+        .map_err(|e| e.to_string())?;
 
-    let webhook_name: String = conn.query_row(
-        "SELECT name FROM webhooks WHERE id = ?1",
-        [webhook_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let webhook_name: String = conn
+        .query_row(
+            "SELECT name FROM webhooks WHERE id = ?1",
+            [webhook_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Assign webhook
     mods::assign_webhook_to_mod(&conn, mod_id, webhook_id).map_err(|e| e.to_string())?;
@@ -410,12 +466,18 @@ pub fn assign_webhook(app_handle: AppHandle, mod_id: i64, webhook_id: i64) -> Re
         activity_type: "webhook_assigned".to_string(),
         mod_id: Some(mod_id),
         mod_name: Some(mod_name.clone()),
-        description: format!("Assigned webhook \"{}\" to mod \"{}\"", webhook_name, mod_name),
+        description: format!(
+            "Assigned webhook \"{}\" to mod \"{}\"",
+            webhook_name, mod_name
+        ),
         timestamp: Utc::now(),
-        metadata: Some(json!({
-            "webhook_id": webhook_id,
-            "webhook_name": webhook_name
-        }).to_string()),
+        metadata: Some(
+            json!({
+                "webhook_id": webhook_id,
+                "webhook_name": webhook_name
+            })
+            .to_string(),
+        ),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
@@ -423,22 +485,28 @@ pub fn assign_webhook(app_handle: AppHandle, mod_id: i64, webhook_id: i64) -> Re
 }
 
 #[tauri::command]
-pub fn remove_webhook_assignment(app_handle: AppHandle, mod_id: i64, webhook_id: i64) -> Result<(), String> {
+pub fn remove_webhook_assignment(
+    app_handle: AppHandle,
+    mod_id: i64,
+    webhook_id: i64,
+) -> Result<(), String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
     // Get mod and webhook info for activity log
-    let mod_name: String = conn.query_row(
-        "SELECT name FROM mods WHERE id = ?1",
-        [mod_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let mod_name: String = conn
+        .query_row("SELECT name FROM mods WHERE id = ?1", [mod_id], |row| {
+            row.get(0)
+        })
+        .map_err(|e| e.to_string())?;
 
-    let webhook_name: String = conn.query_row(
-        "SELECT name FROM webhooks WHERE id = ?1",
-        [webhook_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let webhook_name: String = conn
+        .query_row(
+            "SELECT name FROM webhooks WHERE id = ?1",
+            [webhook_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Remove webhook assignment
     mods::remove_webhook_from_mod(&conn, mod_id, webhook_id).map_err(|e| e.to_string())?;
@@ -449,12 +517,18 @@ pub fn remove_webhook_assignment(app_handle: AppHandle, mod_id: i64, webhook_id:
         activity_type: "webhook_unassigned".to_string(),
         mod_id: Some(mod_id),
         mod_name: Some(mod_name.clone()),
-        description: format!("Removed webhook \"{}\" from mod \"{}\"", webhook_name, mod_name),
+        description: format!(
+            "Removed webhook \"{}\" from mod \"{}\"",
+            webhook_name, mod_name
+        ),
         timestamp: Utc::now(),
-        metadata: Some(json!({
-            "webhook_id": webhook_id,
-            "webhook_name": webhook_name
-        }).to_string()),
+        metadata: Some(
+            json!({
+                "webhook_id": webhook_id,
+                "webhook_name": webhook_name
+            })
+            .to_string(),
+        ),
     };
     add_activity(Some(&app_handle), &conn, &activity).map_err(|e| e.to_string())?;
 
@@ -462,7 +536,10 @@ pub fn remove_webhook_assignment(app_handle: AppHandle, mod_id: i64, webhook_id:
 }
 
 #[tauri::command]
-pub fn get_mod_assigned_webhooks(app_handle: AppHandle, mod_id: i64) -> Result<Vec<crate::database::Webhook>, String> {
+pub fn get_mod_assigned_webhooks(
+    app_handle: AppHandle,
+    mod_id: i64,
+) -> Result<Vec<crate::database::Webhook>, String> {
     let db_path = get_database_path(&app_handle);
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
     crate::database::webhooks::get_mod_webhooks(&conn, mod_id).map_err(|e| e.to_string())
