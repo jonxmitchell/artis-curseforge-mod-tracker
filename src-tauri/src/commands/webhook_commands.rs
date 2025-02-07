@@ -10,6 +10,8 @@ use rusqlite::Connection;
 use serde_json::json;
 use tauri::AppHandle;
 
+const DISCORD_FIELD_CHAR_LIMIT: usize = 1024; // Discord's field value character limit
+
 #[derive(Debug)]
 struct ModUpdateData {
     mod_id: i64,
@@ -56,6 +58,27 @@ fn format_date(date_str: &str) -> String {
     }
 }
 
+fn format_changelog(changelog: Option<String>) -> String {
+    match changelog {
+        Some(text) if !text.trim().is_empty() => {
+            let mut formatted = text.trim().to_string();
+            if formatted.len() > DISCORD_FIELD_CHAR_LIMIT {
+                // Find the last space before the limit to avoid cutting words
+                if let Some(last_space) = formatted[..DISCORD_FIELD_CHAR_LIMIT - 3].rfind(' ') {
+                    formatted.truncate(last_space);
+                    formatted.push_str("...");
+                } else {
+                    // If no space found, just cut at the limit
+                    formatted.truncate(DISCORD_FIELD_CHAR_LIMIT - 3);
+                    formatted.push_str("...");
+                }
+            }
+            formatted
+        }
+        _ => "No changelog available".to_string(),
+    }
+}
+
 fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
     let mut result = text.to_string();
 
@@ -72,7 +95,7 @@ fn replace_template_variables(text: &str, data: &ModUpdateData) -> String {
         ("{modAuthorName}", data.mod_author.clone()),
         ("{logoUrl}", data.logo_url.clone().unwrap_or_default()),
         ("{modURL}", data.page_url.clone().unwrap_or_default()),
-        ("{changelog}", data.changelog.clone().unwrap_or_default()),
+        ("{changelog}", format_changelog(data.changelog.clone())),
     ];
 
     for (key, value) in replacements {
