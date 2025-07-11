@@ -2,7 +2,7 @@
 
 A modern, sleek desktop application for tracking and managing CurseForge mod updates with Discord webhook integration.
 
-![Version](https://img.shields.io/badge/version-0.9.9-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Tauri](https://img.shields.io/badge/tauri-%2324C8DB.svg?style=flat&logo=tauri&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-black?style=flat&logo=next.js&logoColor=white)

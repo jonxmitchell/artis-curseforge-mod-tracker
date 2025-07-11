@@ -188,7 +188,7 @@ pub async fn add_mod(
         curseforge_id,
         name: curse_data.data.name.clone(),
         game_name: game_name.clone(),
-        last_updated: curse_data.data.date_released.clone(),
+        last_updated: curse_data.data.date_modified.clone(),
         page_url: Some(page_url.clone()),
     };
 
@@ -208,7 +208,7 @@ pub async fn add_mod(
             json!({
                 "game": game_name,
                 "curseforge_id": curseforge_id,
-                "initial_version_date": curse_data.data.date_released,
+                "initial_version_date": curse_data.data.date_modified,
                 "page_url": page_url,
             })
             .to_string(),
@@ -255,7 +255,7 @@ pub async fn check_mod_update(
 
     let curse_data: CurseForgeResponse = response.json().await.map_err(|e| e.to_string())?;
 
-    let new_date = curse_data.data.date_released.clone();
+    let new_date = curse_data.data.date_modified.clone();
 
     if new_date != current_last_updated {
         let db_path = get_database_path(&app_handle);
