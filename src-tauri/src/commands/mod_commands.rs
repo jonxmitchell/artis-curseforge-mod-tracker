@@ -102,6 +102,12 @@ async fn get_game_name(
     game_id: i64,
     api_key: &str,
 ) -> Result<String, String> {
+    // Hardcoded game ID for ARK: Survival Ascended due to CurseForge API bug
+    // See: https://github.com/CurseForge/APIFeedback/issues/XXX
+    if game_id == 83374 {
+        return Ok("ARK: Survival Ascended".to_string());
+    }
+
     let mut headers = HeaderMap::new();
     headers.insert("x-api-key", api_key.parse().unwrap());
 
